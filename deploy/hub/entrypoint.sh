@@ -40,6 +40,10 @@ grep -q 'oidc-claim-rules.xml' conf/attributes/default-rules.xml || \
   sed -i 's|</beans>|    <import resource="oidc-claim-rules.xml" />\n</beans>|' conf/attributes/default-rules.xml
 # (client-secret credential bean lives in the COPY'd conf/sp/oidc-credentials.xml)
 
+# PoC logging: DEBUG for the hub and OIDC packages (shows claims received, agent ops).
+grep -q 'name="net.shibboleth.sp"' conf/logback.xml || \
+  sed -i 's|</configuration>|    <logger name="net.shibboleth.sp" level="DEBUG" />\n    <logger name="net.shibboleth.oidc" level="DEBUG" />\n</configuration>|' conf/logback.xml
+
 # Foreground Jetty via the plugin's script (sets -Didp.home, tmpdir, log dir).
 # JETTY_HOME / JETTY_BASE come from the image ENV; http host was opened in the Dockerfile.
 exec bin/runjetty.sh run

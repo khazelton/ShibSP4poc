@@ -39,9 +39,11 @@ services:
       - "443:443"
       - "80:80"
     volumes:
-      - ./agent/conf/agent.ini:/etc/shibboleth-sp/agent.ini:ro
-      - ./agent/conf/handlers.ini:/etc/shibboleth-sp/handlers.ini:ro
-      - ./agent/conf/shib4-poc.conf:/etc/httpd/conf.d/shib4-poc.conf:ro
+      # Directory mounts (not single files): editing a file on the Mac replaces its
+      # inode, which silently breaks a single-file bind mount.
+      - ./agent/conf/shibboleth-sp:/etc/shibboleth-sp:ro
+      - ./agent/conf/httpd:/etc/httpd/conf.d/poc:ro
+      - agent-sessions:/var/cache/shibboleth-sp
 
   app:
     image: jetty:12-jdk17
@@ -58,3 +60,4 @@ services:
 
 volumes:
   hub-logs:
+  agent-sessions:

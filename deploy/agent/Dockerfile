@@ -23,7 +23,14 @@ RUN sed -i 's/^LoadModule mpm_prefork_module/#LoadModule mpm_prefork_module/; s/
  && echo "ServerName localhost" > /etc/httpd/conf.d/00-servername.conf \
  && echo "UseCanonicalName On" >> /etc/httpd/conf.d/00-servername.conf \
  && rm -f /etc/httpd/conf.d/welcome.conf \
- && mv /etc/httpd/conf.d/shib4.conf /etc/httpd/conf.d/shib4.conf.shipped   # replaced by bind-mounted shib4-poc.conf
+ && mv /etc/httpd/conf.d/shib4.conf /etc/httpd/conf.d/shib4.conf.shipped \
+ # "00-" so the PoC vhost is the first *:443 vhost (ahead of ssl.conf's _default_)
+ && echo "IncludeOptional conf.d/poc/*.conf" > /etc/httpd/conf.d/00-poc-include.conf
+
+# /etc/shibboleth-sp is bind-mounted read-only from deploy/agent/conf/shibboleth-sp;
+# keep the shipped copies for reference and give the session cache a writable home.
+RUN cp -a /etc/shibboleth-sp /etc/shibboleth-sp.shipped \
+ && mkdir -p /var/cache/shibboleth-sp && chown apache:apache /var/cache/shibboleth-sp
 
 # Agent config is bind-mounted from deploy/agent/conf at runtime (see compose.yaml)
 
