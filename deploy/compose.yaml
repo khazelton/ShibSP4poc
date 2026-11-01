@@ -10,6 +10,7 @@
 services:
   hub:
     build: ./hub
+    image: sp4-hub:dev          # same tag whether built by compose or `docker build -t`
     container_name: sp4-hub
     environment:
       # Google OAuth client (Phase 0). Put real values in deploy/.env (gitignored).
@@ -27,6 +28,7 @@ services:
 
   agent:
     build: ./agent
+    image: sp4-agent:dev
     container_name: sp4-agent
     depends_on:
       hub:
