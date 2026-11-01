@@ -76,8 +76,10 @@ First browser login succeeded first try: `/secure/` → Google → `/Shibboleth.
 - Negative tests: wrong secret → 401; off-range IP → denied.
 - Exit: same login flow works cross-host; failure cases rejected.
 
-### Phase 3 — Attribute shaping
-- Replace `acceptUnfilteredAttributes` with a real attribute filter.
+### Phase 3 — Attribute shaping — **partly done 2026-11-01**
+- ~~Replace `acceptUnfilteredAttributes` with a real attribute filter.~~ Done: `deploy/hub/conf/attribute-filter.xml` (permit policy for the Google claim set; stock IdP filter was silently dropping `mail`). `sp.oidc.acceptUnfilteredAttributes` still `true` as belt-and-braces — drop it once the policy is final. Empty `attribute-resolver.xml` kills the `uid` error.
+- Verified at the app: `X-Shib-Sub, -Mail, -DisplayName, -GivenName, -Sn, -Session-Id, -Application-Id`.
+- `X-Remote-User` is `(null)`: nothing maps to `REMOTE_USER` yet. Find the SP4 agent equivalent of SP3's `REMOTE_USER="eppn mail"` (not in shipped `agent.ini`; check `AttributeHandling` page / `[attribute-settings]`).
 - Map claims → `mail` (from `email`), `displayName` (from `name`), and a synthetic `eppn` = `email` for app compatibility, via `oidc-claim-rules.xml`; verify header names in app. Optionally gate on `hd` to restrict to one Workspace domain.
 - Optional: second Application ID on same agent (`ShibRequestSetting applicationId`) pointing at a different OP override.
 
