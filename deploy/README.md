@@ -6,7 +6,7 @@ Three containers on one Docker network. See `../docs/poc-outline.md` for the why
 |---------|-------|------|
 | `hub`   | `./hub` (IdP 5.2.3 + Jetty 12.1 + shibd core/OIDC snapshot plugins) | OIDC RP toward Google; serves agents at `http://hub:8080/idp/profile/sp/` |
 | `agent` | `./agent` (Rocky 9 + httpd 2.4 + `shibboleth-sp-4.0.0beta1`) | `https://localhost`; protects `/secure`, proxies to app |
-| `app`   | `jetty:12-jdk17` | JSP pages under `app/webapps`; reachable only from the agent |
+| `app`   | `./app` (Maven multi-stage → Jetty 12) | `/secure` (JSP + `/callapi` servlet), `/api/echo` test resource server, `/public`; reachable only from the agent |
 
 ## 0. Google (Phase 0)
 
@@ -44,6 +44,13 @@ Browse to `https://localhost/secure/` (accept the self-signed cert) → Google l
 - hub: `sp.agent.authn.method = basic`; agent bean `sp4-agent.localtest` in `hub/conf/agents.xml` with `allowedAddressRanges=172.30.0.20/32`; TLS on 8443 with a build-time self-signed cert for `hub.localtest`, PEM exported to the `hub-tls` volume at start.
 - agent: pinned `172.30.0.20`; `agent.ini` → `https://hub.localtest:8443/…`, `authMethod = basic`, `tlsCAFile=/etc/pki/sp4-hub/hub.crt`, `secretFile=/etc/shibboleth-sp/agent.pwd`.
 - Negative tests (wrong secret / wrong IP) — see `docs/poc-outline.md` Phase 2. Responses are HTTP 200 with `event InvalidCredentials` / `AccessDenied` in the body.
+
+## Phase 3b (applied)
+
+- Service-account JSON key at `app/secrets/sa.json` (gitignored, excluded from the build context).
+- `https://localhost/secure/callapi`: app signs a JWT-bearer assertion (`target_audience=$API_AUDIENCE`), gets a Google ID token, calls `$API_URL` with it, and shows the API's echoed claims plus a deliberate audience-mismatch 401.
+- Env knobs on the `app` service: `SA_KEY_FILE`, `API_AUDIENCE`, `API_URL`.
+- Rebuild after Java changes: `docker compose build app && docker compose up -d --force-recreate app`.
 
 ## Known gaps to resolve on first run
 

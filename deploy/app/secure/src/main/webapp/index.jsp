@@ -22,5 +22,5 @@
 <tr><td><code><%= n %></code></td><td><code><%= request.getHeader(n) %></code></td></tr>
 <% } %>
 </table>
-<p><a href="/public/">public page</a> · <a href="/Shibboleth.sso/Session">agent session</a> · <a href="/secure/callapi.jsp">call API (Phase 3b)</a></p>
+<p><a href="/public/">public page</a> · <a href="/Shibboleth.sso/Session">agent session</a> · <a href="/secure/callapi">call API as the app (Phase 3b)</a></p>
 </body></html>

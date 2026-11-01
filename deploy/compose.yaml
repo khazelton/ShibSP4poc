@@ -57,7 +57,8 @@ services:
       - hub-tls:/etc/pki/sp4-hub:ro   # hub.crt -> agent.ini tlsCAFile
 
   app:
-    image: jetty:12-jdk17
+    build: ./app
+    image: sp4-app:dev
     container_name: sp4-app
     # No published port: only the agent can reach it. That is the "loopback only"
     # rule from the outline, expressed in Docker terms.
@@ -65,11 +66,13 @@ services:
       poc:
         ipv4_address: 172.30.0.30
     environment:
-      JETTY_PORT: "8081"
-    command: ["--module=ee10-deploy,ee10-jsp,http", "jetty.http.port=8081"]
+      # Phase 3b: service-account key -> Google ID token for API_AUDIENCE -> API_URL
+      SA_KEY_FILE: /var/lib/jetty/secrets/sa.json
+      API_AUDIENCE: https://sp4-poc-api.localtest
+      API_URL: http://localhost:8081/api/echo
+    command: ["--module=ee10-deploy,ee10-jsp,ee10-annotations,http", "jetty.http.port=8081"]
     volumes:
-      - ./app/webapps:/var/lib/jetty/webapps:ro
-      - ./app/secrets:/var/lib/jetty/secrets:ro   # service-account key for Phase 3b
+      - ./app/secrets:/var/lib/jetty/secrets:ro   # service-account key (gitignored)
 
 networks:
   poc:

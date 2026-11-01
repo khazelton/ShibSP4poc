@@ -85,7 +85,9 @@ Agent `sp4-agent.localtest` (pinned 172.30.0.20) → `https://hub.localtest:8443
 - Map claims → `mail` (from `email`), `displayName` (from `name`), and a synthetic `eppn` = `email` for app compatibility, via `oidc-claim-rules.xml`; verify header names in app. Optionally gate on `hd` to restrict to one Workspace domain.
 - Optional: second Application ID on same agent (`ShibRequestSetting applicationId`) pointing at a different OP override.
 
-### Phase 3b — App's own tokens (Google service account, JWT-bearer)
+### Phase 3b — App's own tokens (Google service account, JWT-bearer) — **DONE 2026-11-01**
+`deploy/app/` is now a Maven multi-module build (inside Docker): `secure.war` (`index.jsp` + `/secure/callapi`, `CallApiServlet`) and `api.war` (`/api/echo`, `EchoServlet`). Hand-rolled RFC 7523 with nimbus-jose-jwt: SA key → RS256 assertion with `target_audience=https://sp4-poc-api.localtest` → `oauth2.googleapis.com/token` → ID token (`iss=https://accounts.google.com`, `aud=<API_AUDIENCE>`, `email=<SA>`) → API validates via Google JWKS + explicit `iss`/`aud`/`sub`/`exp` checks → 200 with echoed claims; `?expectAud=…` mismatch → 401 "audience mismatch". nimbus `DefaultJWTClaimsVerifier` 4-arg ctor NPE'd in 9.40; explicit checks used instead. Original plan follows.
+
 Independent of Phases 1–3; can run in parallel once Phase 0 is done. Google has no `client_credentials`; the equivalent for "app calls API as itself" is a service account minting a Google-signed **ID token** for a chosen audience (same mechanism Cloud Run / IAP use).
 - App, on `/callapi`:
   1. Build RS256 JWT from the service-account key: `iss`/`sub` = SA email, `aud` = `https://oauth2.googleapis.com/token`, `target_audience` = test API URL, `iat`/`exp` (≤1h).
