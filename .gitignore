@@ -20,3 +20,7 @@ build/
 target/
 .venv/
 __pycache__/
+
+# PoC deploy secrets
+deploy/.env
+deploy/app/secrets/

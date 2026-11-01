@@ -1,0 +1,49 @@
+# deploy/ — Phase 1 stack on this Mac
+
+Three containers on one Docker network. See `../docs/poc-outline.md` for the why.
+
+| Service | Image | What |
+|---------|-------|------|
+| `hub`   | `./hub` (IdP 5.2.3 + Jetty 12.1 + shibd core/OIDC snapshot plugins) | OIDC RP toward Google; serves agents at `http://hub:8080/idp/profile/sp/` |
+| `agent` | `./agent` (Rocky 9 + httpd 2.4 + `shibboleth-sp-4.0.0beta1`) | `https://localhost`; protects `/secure`, proxies to app |
+| `app`   | `jetty:12-jdk17` | JSP pages under `app/webapps`; reachable only from the agent |
+
+## 0. Google (Phase 0)
+
+1. GCP Console → APIs & Services → OAuth consent screen: External, Testing, add your Google account as a test user.
+2. Credentials → Create OAuth client ID → Web application. Leave redirect URIs empty for now.
+3. `cp .env.example .env`, fill in `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+4. (Phase 3b) IAM → Service accounts → create one, download JSON key → `app/secrets/sa.json`.
+
+## 1. Build and start
+
+```sh
+cd deploy
+docker compose build          # hub takes several minutes (IdP install + Jetty + plugins)
+docker compose up -d
+docker compose logs -f hub    # wait for Jetty "Started" and no AgentResolverService errors
+curl -k https://localhost/Shibboleth.sso/Status   # agent ↔ hub health
+```
+
+## 2. First login — discover the redirect URI
+
+Browse to `https://localhost/secure/` (accept the self-signed cert). Expected first result: Google error page **`redirect_uri_mismatch`** showing the URI the hub sent. Copy it exactly into the OAuth client's *Authorized redirect URIs*, wait ~1 min, retry. Record the format in `../docs/sp4-research.md` (it is undocumented).
+
+Second attempt: Google login → back to `/secure/` → Jetty page lists `X-Shib-*` headers.
+
+## 3. Where things live inside the containers
+
+- hub: `/opt/shibboleth-idp/conf/sp/{sp.properties,agents.xml,oidc.properties,oidc-credentials.xml}`, logs in `/opt/shibboleth-idp/logs/` (volume `hub-logs`). `hub/entrypoint.sh` applies the PoC settings on every start.
+- agent: `/etc/shibboleth-sp/agent.ini` (bind-mounted from `agent/conf/`), httpd conf `/etc/httpd/conf.d/shib4-poc.conf` (bind-mounted). Agent logs → journal/syslog inside the container; `docker compose logs agent` shows httpd only.
+- app: `/var/lib/jetty/webapps/{secure,public}`.
+
+## Phase 2 changes (not yet applied)
+
+- hub: `sp.agent.authn.method = basic`, agent bean in `agents.xml` with `p:credentials` + narrow `p:allowedAddressRanges`.
+- agent: `authMethod = basic`, `secretFile`, TLS to hub (`tlsCAFile`), `baseURL` → `https://`.
+
+## Known gaps to resolve on first run
+
+- `mod_shib4.so` path in `agent/conf/shib4-poc.conf` — check `rpm -ql shibboleth-sp | grep mod_shib4`.
+- Attribute env-var names (`mail`, `displayName`, …) depend on the hub's `oidc-claim-rules.xml`; adjust the `RequestHeader set` lines after seeing `/Shibboleth.sso/Session`.
+- Snapshot tarball names in `hub/Dockerfile` ARGs go stale daily; refresh the URLs if the build 404s.

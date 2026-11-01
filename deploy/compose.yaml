@@ -1,0 +1,57 @@
+# SP v4 PoC — Phase 1 topology (all on this Mac, Docker)
+#
+#   browser -> https://localhost (agent: Apache 2.4 + mod_shib4) -> app (Jetty 12, :8081)
+#                      \-> hub (IdP 5.2.3 + shibd plugins, :8080, plain HTTP, docker net only)
+#                                 \-> Google OIDC
+#
+# Phase 1 uses authMethod=none agent->hub with the hub's allowed-address
+# range opened to the docker network. Phase 2 adds basic auth + secret.
+
+services:
+  hub:
+    build: ./hub
+    container_name: sp4-hub
+    environment:
+      # Google OAuth client (Phase 0). Put real values in deploy/.env (gitignored).
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set in deploy/.env}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?set in deploy/.env}
+    ports:
+      - "127.0.0.1:8080:8080"   # for poking at the hub from the Mac; agent uses the docker net
+    volumes:
+      - hub-logs:/opt/shibboleth-idp/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8080/idp/status"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+
+  agent:
+    build: ./agent
+    container_name: sp4-agent
+    depends_on:
+      hub:
+        condition: service_healthy
+      app:
+        condition: service_started
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./agent/conf/agent.ini:/etc/shibboleth-sp/agent.ini:ro
+      - ./agent/conf/shib4-poc.conf:/etc/httpd/conf.d/shib4-poc.conf:ro
+
+  app:
+    image: jetty:12-jdk17
+    container_name: sp4-app
+    # Jetty binds all interfaces inside the container; only the agent can reach it
+    # because no port is published to the Mac. That is the "loopback only" rule
+    # from the outline, expressed in Docker terms.
+    environment:
+      JETTY_PORT: "8081"
+    command: ["--module=ee10-deploy,ee10-jsp,http", "jetty.http.port=8081"]
+    volumes:
+      - ./app/webapps:/var/lib/jetty/webapps:ro
+      - ./app/secrets:/var/lib/jetty/secrets:ro   # service-account key for Phase 3b
+
+volumes:
+  hub-logs:
