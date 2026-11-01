@@ -4,7 +4,7 @@ Drafted 2026-11-01. Background and exact config keys in [sp4-research.md](sp4-re
 
 ## Goal
 
-Show that a campus Java web app running in **Jetty** can be protected by an SP v4 **Agent** (Apache httpd as auth reverse proxy), with the **Hub** doing OpenID Connect (auth code flow) against the campus IdP's OIDC OP, and the app receiving identity as HTTP headers — with the app and agent having no idea OIDC is involved. Secondary: exercise the agent-registration (ID + shared secret) path that the TechEx discussion flagged as the scaling pain point.
+Show that a campus Java web app running in **Jetty** can be protected by an SP v4 **Agent** (Apache httpd as auth reverse proxy), with the **Hub** doing OpenID Connect (auth code flow) against the campus IdP's OIDC OP, and the app receiving identity as HTTP headers — with the app and agent having no idea OIDC is involved. The app also needs **its own OAuth2 access tokens** to call campus APIs as itself (not as the user); it obtains those directly from the OP via `client_credentials`, independent of SP v4. Secondary: exercise the agent-registration (ID + shared secret) path that the TechEx discussion flagged as the scaling pain point.
 
 ## Framing decision
 
@@ -20,7 +20,12 @@ browser ──▶ Apache + mod_shib4 (Agent) ──HTTP/TLS, basic auth──▶
 
 **Why httpd still appears:** SP v4 ships agents only for Apache 2.4, IIS, and FastCGI; there is no Java/Jetty agent and the project says new agents are "not an initial goal." Apache is therefore a thin auth proxy, not the app server. The app runs in Jetty. (Writing a Jetty agent against the hub remoting protocol is a possible follow-on; see Phase 5.)
 
-If the app instead needs its own tokens (calls APIs as the user), SP v4 is the wrong tool — register the app directly with the OP. Confirm which case applies before building.
+**Tokens.** The app needs tokens to call APIs **as itself** (confirmed 2026-11-01). That is `client_credentials` — no user context, so SP v4 is not in that path at all. The app is registered at the OP as its own confidential client (`client_id` #2, distinct from the hub's RP registration) and mints tokens on demand. Had the app needed *user-delegated* tokens, SP v4 would have been the wrong tool: the hub keeps its access token in session and does not release it to the agent (features table "No/Maybe"; token exchange is v3 roadmap).
+
+```
+Jetty app ──client_credentials (client_id #2 + secret)──▶ OP token endpoint ──▶ JWT access token
+Jetty app ──Bearer <token>──▶ campus API (validates via OP JWKS or introspection)
+```
 
 ## Components
 
@@ -31,7 +36,9 @@ If the app instead needs its own tokens (calls APIs as the user), SP v4 is the w
 | 3 | Hub plugins | `sp-dist` 0.0.3-SNAPSHOT core + `sp-oidc-dist` (+ `oidc-common` 3.4.0-SNAPSHOT) |
 | 4 | Agent | `shibboleth-sp` 4.0.0beta1 RPM on Rocky 9, Apache 2.4 event MPM, `mod_proxy_http` to Jetty |
 | 5 | App server | Jetty 12 (ee10), same host as agent for PoC; listens on 127.0.0.1 only |
-| 6 | App | Trivial servlet/JSP that dumps request headers (`REMOTE_USER` equivalent, attrs, `Shib-*`) |
+| 6 | App | Servlet that (a) dumps identity headers and (b) on `/callapi` fetches a `client_credentials` token and calls the test API |
+| 7 | OP client #2 | App's own confidential client at the OP: `grant_types=client_credentials`, scopes/resource for the test API |
+| 8 | Test API | Second servlet (or separate Jetty) that accepts `Bearer`, validates JWT against OP JWKS (nimbus-jose-jwt), echoes claims |
 
 ## Phases
 
@@ -65,6 +72,16 @@ If the app instead needs its own tokens (calls APIs as the user), SP v4 is the w
 - Map claims → `eppn`, `displayName`, `mail` via `oidc-claim-rules.xml`; verify env var names in app.
 - Optional: second Application ID on same agent (`ShibRequestSetting applicationId`) pointing at a different OP override.
 
+### Phase 3b — App's own tokens (`client_credentials`)
+Independent of Phases 1–3; can run in parallel once Phase 0 is done.
+- Register OP client #2 for the app: confidential, `grant_types: ["client_credentials"]`, `token_endpoint_auth_method: client_secret_basic` (or `private_key_jwt` later), scope(s) for the test API, `resource` indicator (RFC 8707) if the OP enforces audience.
+- OP side (plugin **V3.1+** required): add `client_credentials` to `idp.oauth2.grantTypes` or on the client's `OAUTH2.Token` bean; put `OAUTH2.Token` + `OAUTH2.TokenAudience` in the RP's profile collection in `relying-party.xml`; set `accessTokenType="JWT"` and (for an unregistered test API) `encryptionOptional="true"` on `OAUTH2.TokenAudience`. Client metadata JSON needs `scope` and extension claim `"audience"` listing the API, or set `idp.oauth2.defaultAllowedAudience`. OP refuses to mint a token without `aud`.
+- App: on `/callapi`, POST `grant_type=client_credentials` to the OP token endpoint, cache token until `exp`, call test API with `Authorization: Bearer`.
+- Test API: validate JWT access token (RFC 9068) — `iss`, `aud`/`resource`, `exp`, signature via OP JWKS. Fallback: OP introspection endpoint (RFC 7662).
+- Secret handling: app `client_secret` lives in Jetty-side config outside the webapp; same lifecycle story as agent secrets → Phase 4 (midPoint provisions both).
+- Exit: logged-in user hits `/callapi`; page shows identity headers **and** the API's echoed token claims (`sub` = app client_id, `aud`, `scope`).
+- Negative: expired/wrong-audience token → 401 from API.
+
 ### Phase 4 (stretch) — Agent registration at scale
 Directly answers Scott's ACAMP ask: "how do you issue credentials to all these agents, and how should agent config in the hub look?" See research doc, ACAMP section.
 
@@ -90,7 +107,7 @@ Directly answers Scott's ACAMP ask: "how do you issue credentials to all these a
 
 ## Open questions for stakeholders
 
-1. Does the app need tokens (API calls) or just identity? Decides whether SP v4 applies.
-2. Can the campus IdP accept a test OIDC client, or do we stand up our own OP?
+1. ~~Does the app need tokens or just identity?~~ Resolved: identity via SP v4, plus `client_credentials` tokens for app-as-itself API calls. (If user-delegated tokens ever become a requirement, revisit — SP v4 does not cover that today.)
+2. Can the campus IdP accept **two** test OIDC clients (hub RP + app client_credentials), or do we stand up our own OP? Which campus APIs are the target, and do they already validate OP-issued JWTs?
 3. Who owns agent IDs/secrets long term — hub admin or IAM? (Shapes Phase 4.)
 4. Interest in offering results to Shib dev list / Scott as early SP4 feedback?

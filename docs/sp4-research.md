@@ -108,6 +108,16 @@ UseCanonicalName On
 - Officially supported for IdP ≥ 4.1. v3.0+ current line; v3.1+ adds OAuth2 features (RFC 6750, 7009, 7636, 7662, 8707, 9068, 9101, 9126, 9207). Implements Core, Discovery, DCR, RP-/front-/back-channel logout.
 - Docs: https://shibboleth.atlassian.net/wiki/spaces/IDPPLUGINS/pages/1376878976/OIDC+OP; client registration: pages/1376879133 (OPMetadataClientRegistration); config: pages/3167158285 (OIDCConfig); release notes: pages/2776760321.
 
+### client_credentials grant (OPClientCredentialsGrant, pages/2930606124)
+- Supported, **requires plugin V3.1+**.
+- Enable globally via `idp.oauth2.grantTypes` property, or per-RP on an `OAUTH2.Token` profile config bean. `OAUTH2.Token` must be in a profile collection in `relying-party.xml`.
+- Two beans: `OAUTH2.Token` (client auth, grant allowed) and `OAUTH2.TokenAudience` (token format, lifetime). For unregistered clients/resource servers add both to `shibboleth.UnverifiedRelyingParty`.
+- Client metadata optional: client auth alone suffices (V3.1 feature). If registered, JSON per DCR format: `client_id`, `scope`, plus extension claim `"audience"`. Example from docs: `{ "client_id": "demo_rp", "response_types": ["id_token"], "scope": "openid info profile email address phone", "redirect_uris": [...] }`.
+- Scope: client must request; allowed set from metadata or `idp.oauth2.defaultAllowedScope`. Audience from metadata `audience` or `idp.oauth2.defaultAllowedAudience`; strategy beans `shibboleth.oidc.AllowedScopeStrategy` / `AllowedAudienceStrategy`. `resource` param (RFC 8707) names audience; first = primary. **No token issued without `aud`.**
+- Token format: `OAUTH2.TokenAudience` `accessTokenType` — default opaque; `"JWT"` → signed (RFC 9068), encrypted if primary audience has enc keys. `encryptionOptional="true"` needed for unregistered resource servers. JWT carries `sub` and `client_id`.
+- Introspection: profile `OAUTH2.Introspection` (pages/1376879310), works with client auth and no metadata. Not fetched.
+- Not fetched: `OAUTH2.Token` (2931327005), `OAUTH2.TokenAudience` (2931425281), OPProfileConfiguration (1376879261), OPSecurity (1376879249).
+
 ## ACAMP 2026 session: "Scaling Shibboleth 4 SP Deployments"
 
 Thu 2026-10-29, convener Scott Cantor, scribe Phil Smart, 27 attendees. Source: [ACAMP2026-ShibSp4.pdf](ACAMP2026-ShibSp4.pdf). Points not already covered above:
