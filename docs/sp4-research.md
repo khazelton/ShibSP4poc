@@ -20,7 +20,7 @@ Fetched 2026-11-01 from the Shibboleth Confluence wiki. All SP4/Hub/Agent docs c
 
 ## Architecture
 
-- **Agent** (C/C++, `mod_shib4.so` for Apache 2.4; IIS; FastCGI). Stripped down, no XML/crypto deps. Talks only to the hub. `shibd` no longer exists.
+- **Agent** (C/C++, `mod_shib4.so` for Apache 2.4; IIS; FastCGI). Stripped down, no XML/crypto deps. Talks only to the hub. `shibd` no longer exists. **No Java/Jetty/Tomcat agent exists**; "new agents may be developed but this is not an initial goal." Java apps sit behind httpd/IIS as reverse proxy.
 - **Hub** (Java, IdP plugins, Spring Web Flow). Never talks to user agents directly. Stateless about agents. Protocol-neutral: "invisible to an agent whether SAML, OpenID Connect, or something else is involved."
 - Hub config model: `AgentResolver` → **Agent** (id + credentials + issuer) → **Application(s)** (protocol config; agent only sees its ID) → **Authority** (neutral term for SAML IdP or OIDC OP).
 - Agent→hub: HTTP 1.1 carrying serialized DDF objects, endpoint `<hub>/idp/profile/sp/`. TLS with static trust anchors (`tlsCAFile`), no metadata-driven trust. **Agent auth = shared secret (HTTP basic) + IP allowlist.** Agents do not support client TLS auth.
