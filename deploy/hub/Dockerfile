@@ -65,8 +65,13 @@ RUN mkdir -p credentials/sp \
  && bin/jwtgen-sp.sh -t EC -c P-256 -u sig -i defaultECSign | tail -n +2 > credentials/sp/sp-signing-es.jwk \
  && bin/jwtgen-sp.sh -t RSA -s 2048 -u enc -i defaultRSAEnc | tail -n +2 > credentials/sp/sp-encryption-rsa.jwk
 
-# PoC override: enables only the client_secret credential (shipped file has it commented out)
+# PoC overrides (see comments in each file):
+#  - oidc-credentials.xml: enables only the client_secret credential
+#  - attribute-filter.xml: releases Google claims; stock policy silently dropped "mail"
+#  - attribute-resolver.xml: empty; stock "uid" definition errors on a hub-only IdP
 COPY conf/oidc-credentials.xml conf/sp/oidc-credentials.xml
+COPY conf/attribute-filter.xml conf/attribute-filter.xml
+COPY conf/attribute-resolver.xml conf/attribute-resolver.xml
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

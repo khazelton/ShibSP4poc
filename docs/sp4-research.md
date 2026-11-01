@@ -75,7 +75,11 @@ OIDC plugin adds:
   - Authorize request: `response_type=code&response_mode=query&scope=openid <extras>&state=…&nonce=…`.
   - `sp.oidc.scopes` values are sent verbatim — use lowercase `profile,email`, not the `PROFILE`/`EMAIL` the comment hints at.
   - Agent → hub calls: `POST /idp/profile/sp/ping` (Status handler), `POST /idp/profile/sp/session-initiator` (login start), `POST /idp/profile/sp/token-consumer` (code exchange + claims). Audit lines in `idp-process.log` under `Shibboleth-Audit.SP.SessionInitiator.OIDC` / `Shibboleth-Audit.SP.TokenConsumer.OIDC`.
-  - The hub runs the host IdP's `AttributeResolverService`; the stock `conf/attribute-resolver.xml` `uid` (PrincipalName) definition then logs `ResolutionException … principal name was empty` on every login. Cosmetic; empty that file or remove the definition on a hub-only install.
+  - The hub runs the host IdP's `AttributeResolverService` **and `AttributeFilterService`** after claim extraction. Two consequences on a stock IdP install:
+    - `conf/attribute-resolver.xml`'s `uid` (PrincipalName) definition logs `ResolutionException … principal name was empty` on every login. Cosmetic; ship an empty resolver.
+    - `conf/attribute-filter.xml`'s stock `Per-Attribute-singleValued` policy has a rule for `mail` that only releases it to SAML SPs whose metadata requests it → **`mail` silently dropped** from the agent session even though `ExtractOIDCClaims` mapped it. `sp.oidc.acceptUnfilteredAttributes=true` does not help: it only admits attributes with *no* rule. Replace the filter with hub-specific policies (`deploy/hub/conf/attribute-filter.xml`).
+  - Claims actually received from Google via ID token + UserInfo: `sub, email, email_verified, name, given_name, family_name, picture, hd`. `hd` has no transcoding rule (logged "No transcoding rule"); add one if domain gating is wanted.
+  - Observed flow at DEBUG: `ExchangeCodeForAccessToken` → JWKS from provider metadata → `ValidateTokenClaims` → `UserInfoEndpointLookup` (`GET https://openidconnect.googleapis.com/v1/userinfo`) → `ExtractOIDCClaims` → internal resolution/filtering → `PrepareAgentResponse` ("Storing id_token, access and refresh tokens in session data").
   - Google end-to-end login (auth code, `client_secret_basic`, scopes `openid profile email`) worked unmodified on SP 4.0.0beta1 + hub 0.0.3-20261101 snapshot.
 
 ## Agent install / config
