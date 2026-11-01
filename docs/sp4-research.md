@@ -108,6 +108,30 @@ UseCanonicalName On
 - Officially supported for IdP ≥ 4.1. v3.0+ current line; v3.1+ adds OAuth2 features (RFC 6750, 7009, 7636, 7662, 8707, 9068, 9101, 9126, 9207). Implements Core, Discovery, DCR, RP-/front-/back-channel logout.
 - Docs: https://shibboleth.atlassian.net/wiki/spaces/IDPPLUGINS/pages/1376878976/OIDC+OP; client registration: pages/1376879133 (OPMetadataClientRegistration); config: pages/3167158285 (OIDCConfig); release notes: pages/2776760321.
 
+## ACAMP 2026 session: "Scaling Shibboleth 4 SP Deployments"
+
+Thu 2026-10-29, convener Scott Cantor, scribe Phil Smart, 27 attendees. Source: [ACAMP2026-ShibSp4.pdf](ACAMP2026-ShibSp4.pdf). Points not already covered above:
+
+Deployment topology
+- Expect **multiple hubs per campus** (central IT + departmental), not one. Hub can be outsourced/hosted, but **cannot federate across organisations** (not day one).
+- Agent design goal: agent admin cares about local policy (URLs, paths, rules); hub owns secrets and protocols.
+- Agents are principals: generally one identity per agent; a cluster behind one app may share an identity.
+- Hub can derive entityID from the vhost it sees (mass-vhost case), as SP3 did.
+- Hub will need to serve OIDC RP metadata/keys and SAML metadata files (not yet).
+- Docker-packaged hub "possibly next year." OOB default is localhost/HTTP.
+- SPv3 end-of-life clock starts when SPv4 ships.
+
+Agent credentials (the scaling problem Scott wanted feedback on)
+- Model deliberately = OIDC-style shared secret. SAML-style key registration rejected as overcomplicated; mTLS "hard to implement/use," maybe later.
+- **agentID is decoupled from the username/password** used to authenticate → credential rotation without touching agent identity.
+- Agents can authenticate against **LDAP etc.** — i.e. enterprise service accounts. htpasswd-style files also supportable. (Maps to `shibboleth.sp.AgentValidators` in `conf/global.xml`.)
+- Hub-side agent config: today "small amount of XML"; v1 target = **flat file of AgentIDs (+ optional credentials)**; **DB + basic UI later**; GUIs further out. Advanced config will still fall back to XML.
+- Longer-term: **token-based enrollment** akin to OIDC dynamic client registration (needs DB).
+- TLS hub↔agent: self-signed intended; PKIX validation also implemented. Goal was to avoid key management entirely → PSK.
+- Floor concerns: orgs' password-rotation policies apply to service accounts; Windows gMSA auto-rotation cited as ideal but burden on project; governance/ownership of service accounts unclear (operator ≠ IdP owner); not all orgs have good service-account processes.
+- Keith's framing: agents are long-term principals — apply human identity-management processes. Scott: technically easy, organisationally hard. "Service account management still seems to be hard in organisations."
+- Scott explicitly asked for deployment feedback and how orgs would issue credentials at scale.
+
 ## Page index
 
 Design (DEV space):

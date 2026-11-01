@@ -66,9 +66,13 @@ If the app instead needs its own tokens (calls APIs as the user), SP v4 is the w
 - Optional: second Application ID on same agent (`ShibRequestSetting applicationId`) pointing at a different OP override.
 
 ### Phase 4 (stretch) — Agent registration at scale
-- Document what a hub operator must do per agent today (bean in `agents.xml`, secret, IP range, issuer, OP client registration).
-- Prototype externalizing that: agents defined from a properties/DB source, secrets provisioned by an IAM/IGA tool (midPoint service account → `secretFile` + hub property). This is the "service account management" gap from the TechEx notes.
-- Output: short write-up for Scott Cantor / dev list with findings and friction points.
+Directly answers Scott's ACAMP ask: "how do you issue credentials to all these agents, and how should agent config in the hub look?" See research doc, ACAMP section.
+
+- Baseline: document what a hub operator does per agent today (bean in `agents.xml`, secret, IP range, issuer, OP client registration).
+- **Agents as service accounts in the directory.** Hub validates agent basic-auth against LDAP via a custom `shibboleth.sp.AgentValidators` entry in `conf/global.xml`; `agents.xml` carries only `p:id`, `p:usernames`, `p:allowedAddressRanges`, `p:issuer` — no secrets. Exploits the agentID↔credential decoupling Scott described.
+- **Provision the service account from IGA (midPoint).** Agent = midPoint service object with owner, lifecycle, rotation policy; midPoint pushes account to LDAP and delivers the secret to the agent host (`secretFile`). Rotation = midPoint changes LDAP password + redeploys `agent.pwd`; hub untouched. This is Keith's "treat agents like human principals" point made concrete, and addresses the governance/ownership objection raised on the floor.
+- **Flat-file agent list.** Generate the per-agent `agents.xml` fragment (or whatever flat format v1 lands on) from midPoint/LDAP, Ansible-style, so hub config is derived, not hand-edited. Matches Chris B.'s "my hub is an Ansible playbook" model.
+- Output: short write-up for Scott / dev list — friction points, what a hub-side "agent list" format would need to carry to make this clean, and whether token-based enrollment (Scott's longer-term idea) is even needed if IGA owns the lifecycle.
 
 ### Phase 5 (stretch, bigger) — Native Jetty agent
 - Goal: drop httpd. A Jetty `Handler`/servlet `Filter` that speaks the hub remoting protocol (HTTP 1.1 + serialized DDF, `/idp/profile/sp/`), does basic-auth to the hub, holds session state, and populates request attributes.
