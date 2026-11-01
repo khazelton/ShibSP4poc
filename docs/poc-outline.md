@@ -69,7 +69,9 @@ First browser login succeeded first try: `/secure/` → Google → `/Shibboleth.
   Jetty must only accept these headers from httpd (bind loopback; strip inbound `X-*`/`HTTP_*` at the proxy with `RequestHeader unset`) or any client can spoof identity.
 - Exit: browser → `/secure` → Google login → back → Jetty header dump shows `sub`, `email`.
 
-### Phase 2 — Networked agent with secret (the real test)
+### Phase 2 — Networked agent with secret — **DONE 2026-11-01**
+Agent `sp4-agent.localtest` (pinned 172.30.0.20) → `https://hub.localtest:8443` with `authMethod=basic`, secret from `agent.pwd`, hub cert via shared volume. Hub log: `AgentSecretCredentialValidator spagent-internal … succeeded`, `ValidateAgentAddress: permitted`. Negative tests against `/idp/profile/sp/ping`: wrong secret → `event InvalidCredentials`; wrong source IP → `event AccessDenied` (both HTTP 200 — errors travel in the DDF body). Secret delivery = `deploy/gen-agent-secret.sh` writing both ends. Original plan follows.
+
 - Move agent to second host. Hub behind TLS (Jetty plugin).
 - Hub: `sp.agent.authn.method = basic`; Agent bean with `p:id`, `p:allowedAddressRanges`, `p:credentials` from externalized property, `p:issuer`.
 - Agent `agent.ini [remoting]`: `agentID`, `baseURL=https://hub/idp/profile/sp/`, `authMethod = basic`, `tlsCAFile`, `secretFile`.

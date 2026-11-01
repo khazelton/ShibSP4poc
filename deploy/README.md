@@ -38,10 +38,12 @@ Browse to `https://localhost/secure/` (accept the self-signed cert) → Google l
 - agent: `/etc/shibboleth-sp/agent.ini` (bind-mounted from `agent/conf/`), httpd conf `/etc/httpd/conf.d/shib4-poc.conf` (bind-mounted). Agent logs → journal/syslog inside the container; `docker compose logs agent` shows httpd only.
 - app: `/var/lib/jetty/webapps/{secure,public}`.
 
-## Phase 2 changes (not yet applied)
+## Phase 2 (applied)
 
-- hub: `sp.agent.authn.method = basic`, agent bean in `agents.xml` with `p:credentials` + narrow `p:allowedAddressRanges`.
-- agent: `authMethod = basic`, `secretFile`, TLS to hub (`tlsCAFile`), `baseURL` → `https://`.
+- `./gen-agent-secret.sh` once (and to rotate): writes `AGENT_SECRET` to `.env` (hub) and `agent/conf/shibboleth-sp/agent.pwd` (agent).
+- hub: `sp.agent.authn.method = basic`; agent bean `sp4-agent.localtest` in `hub/conf/agents.xml` with `allowedAddressRanges=172.30.0.20/32`; TLS on 8443 with a build-time self-signed cert for `hub.localtest`, PEM exported to the `hub-tls` volume at start.
+- agent: pinned `172.30.0.20`; `agent.ini` → `https://hub.localtest:8443/…`, `authMethod = basic`, `tlsCAFile=/etc/pki/sp4-hub/hub.crt`, `secretFile=/etc/shibboleth-sp/agent.pwd`.
+- Negative tests (wrong secret / wrong IP) — see `docs/poc-outline.md` Phase 2. Responses are HTTP 200 with `event InvalidCredentials` / `AccessDenied` in the body.
 
 ## Known gaps to resolve on first run
 

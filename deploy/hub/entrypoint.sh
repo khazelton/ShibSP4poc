@@ -29,13 +29,22 @@ setprop "$OIDC" sp.oidc.acceptUnfilteredAttributes "true"        # PoC only; Pha
 # (verified: "PROFILE,EMAIL" went out literally), so use the lowercase OIDC scope names.
 setprop "$OIDC" sp.oidc.scopes                    "profile,email"
 
-# Phase 1: agent reaches hub over the docker network with no secret.
-# Phase 2 narrows this and sets sp.agent.authn.method = basic.
-setprop "$SP"   sp.agent.authn.allowedAddressRanges "0.0.0.0/0,::/0"
+# Phase 2: agents must authenticate (basic) and come from their declared address.
+# The global range stays at the loopback default; each Agent bean in agents.xml
+# carries its own allowedAddressRanges. The secret is referenced from agents.xml
+# as %{poc.agent.secret}.
+: "${AGENT_SECRET:?AGENT_SECRET not set - run ./gen-agent-secret.sh}"
+setprop "$SP"   sp.agent.authn.method   "basic"
+setprop "$SP"   poc.agent.secret        "${AGENT_SECRET}"
 
-# OIDC plugin wiring per OIDCBasics (imports are appended once).
-grep -q 'oidc-credentials.xml' conf/sp/agents.xml || \
-  sed -i 's|</beans>|    <import resource="oidc-credentials.xml" />\n</beans>|' conf/sp/agents.xml
+# Export the hub's TLS cert (made by the IdP installer for hub.localtest) for agents.
+if [ -d /tls-export ]; then
+  openssl pkcs12 -in credentials/idp-userfacing.p12 -passin pass:changeit -nokeys -clcerts 2>/dev/null \
+    | openssl x509 > /tls-export/hub.crt
+  chmod 644 /tls-export/hub.crt
+fi
+
+# OIDC plugin wiring per OIDCBasics (agents.xml is COPY'd with the import already in it).
 grep -q 'oidc-claim-rules.xml' conf/attributes/default-rules.xml || \
   sed -i 's|</beans>|    <import resource="oidc-claim-rules.xml" />\n</beans>|' conf/attributes/default-rules.xml
 # (client-secret credential bean lives in the COPY'd conf/sp/oidc-credentials.xml)

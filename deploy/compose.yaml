@@ -1,25 +1,32 @@
-# SP v4 PoC — Phase 1 topology (all on this Mac, Docker)
+# SP v4 PoC — Phase 2 topology (all on this Mac, Docker)
 #
-#   browser -> https://localhost (agent: Apache 2.4 + mod_shib4) -> app (Jetty 12, :8081)
-#                      \-> hub (IdP 5.2.3 + shibd plugins, :8080, plain HTTP, docker net only)
+#   browser -> https://localhost (agent: Apache 2.4 + mod_shib4, 172.30.0.20) -> app (Jetty 12, :8081)
+#                      \-> https://hub.localtest:8443 (hub: IdP 5.2.3 + shibd plugins), basic auth + IP check
 #                                 \-> Google OIDC
 #
-# Phase 1 uses authMethod=none agent->hub with the hub's allowed-address
-# range opened to the docker network. Phase 2 adds basic auth + secret.
+# Agent authenticates to the hub with agentID + shared secret over TLS (hub's
+# self-signed cert exported into the hub-tls volume). Run ./gen-agent-secret.sh once.
 
 services:
   hub:
     build: ./hub
     image: sp4-hub:dev          # same tag whether built by compose or `docker build -t`
     container_name: sp4-hub
+    hostname: hub.localtest
     environment:
-      # Google OAuth client (Phase 0). Put real values in deploy/.env (gitignored).
+      # Google OAuth client (Phase 0) and agent secret (Phase 2). Values live in deploy/.env (gitignored).
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set in deploy/.env}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?set in deploy/.env}
+      AGENT_SECRET: ${AGENT_SECRET:?run ./gen-agent-secret.sh}
+    networks:
+      poc:
+        ipv4_address: 172.30.0.10
+        aliases: [hub.localtest]   # must match the CN/SAN of credentials/idp-userfacing.p12
     ports:
-      - "127.0.0.1:8080:8080"   # for poking at the hub from the Mac; agent uses the docker net
+      - "127.0.0.1:8080:8080"   # for poking at the hub from the Mac; agent uses TLS on 8443 via the docker net
     volumes:
       - hub-logs:/opt/shibboleth-idp/logs
+      - hub-tls:/tls-export      # entrypoint writes hub.crt here for the agent
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:8080/idp/status"]
       interval: 15s
@@ -35,6 +42,9 @@ services:
         condition: service_healthy
       app:
         condition: service_started
+    networks:
+      poc:
+        ipv4_address: 172.30.0.20   # pinned: the hub's allowedAddressRanges is this /32
     ports:
       - "443:443"
       - "80:80"
@@ -44,13 +54,16 @@ services:
       - ./agent/conf/shibboleth-sp:/etc/shibboleth-sp:ro
       - ./agent/conf/httpd:/etc/httpd/conf.d/poc:ro
       - agent-sessions:/var/cache/shibboleth-sp
+      - hub-tls:/etc/pki/sp4-hub:ro   # hub.crt -> agent.ini tlsCAFile
 
   app:
     image: jetty:12-jdk17
     container_name: sp4-app
-    # Jetty binds all interfaces inside the container; only the agent can reach it
-    # because no port is published to the Mac. That is the "loopback only" rule
-    # from the outline, expressed in Docker terms.
+    # No published port: only the agent can reach it. That is the "loopback only"
+    # rule from the outline, expressed in Docker terms.
+    networks:
+      poc:
+        ipv4_address: 172.30.0.30
     environment:
       JETTY_PORT: "8081"
     command: ["--module=ee10-deploy,ee10-jsp,http", "jetty.http.port=8081"]
@@ -58,6 +71,13 @@ services:
       - ./app/webapps:/var/lib/jetty/webapps:ro
       - ./app/secrets:/var/lib/jetty/secrets:ro   # service-account key for Phase 3b
 
+networks:
+  poc:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
 volumes:
   hub-logs:
+  hub-tls:
   agent-sessions:

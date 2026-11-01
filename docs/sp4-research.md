@@ -82,6 +82,13 @@ OIDC plugin adds:
   - Observed flow at DEBUG: `ExchangeCodeForAccessToken` → JWKS from provider metadata → `ValidateTokenClaims` → `UserInfoEndpointLookup` (`GET https://openidconnect.googleapis.com/v1/userinfo`) → `ExtractOIDCClaims` → internal resolution/filtering → `PrepareAgentResponse` ("Storing id_token, access and refresh tokens in session data").
   - Google end-to-end login (auth code, `client_secret_basic`, scopes `openid profile email`) worked unmodified on SP 4.0.0beta1 + hub 0.0.3-20261101 snapshot.
 
+Agent authentication, observed (Phase 2):
+  - Wire: `POST <baseURL>/<operation>` with HTTP basic auth; response is `text/plain` DDF text, **always HTTP 200** — outcome is in the body, e.g. `event 1 InvalidCredentials` (bad secret), `event 1 AccessDenied` (source address outside `allowedAddressRanges`), `event 1 InvalidMessage` (empty body). A `cached_auth` token is returned even on failure.
+  - Hub actions in order: `ValidateCachedAuthentication` → `AgentSecretCredentialValidator` (validator id `spagent-internal` for the in-config credentials map) → `ValidateAgentAddress` → `ResolveApplication`.
+  - `p:credentials="#{ {null : '…'} }"`: null key ⇒ username = agent id; log says `with username 'null' succeeded`.
+  - IdP installer under Docker ignored `idp.host.name` for the Jetty cert (`CN=<build container IP>`); replace `credentials/idp-userfacing.p12` yourself. Agent TLS trust is a plain PEM via `tlsCAFile`; hostname must match SAN. `jetty.ssl.host` also needs opening from 127.0.0.1.
+  - Agent's own `/idp/status` probe from the agent IP gets 403 — IdP status page ACL, unrelated to agent auth.
+
 ## Agent install / config
 
 - Supported: Apache 2.4 only; RHEL/Rocky 8/9/10, Amazon Linux 2023 (x86_64, aarch64); Windows (IIS, Apache Lounge). MPM worker/event, not prefork.

@@ -14,7 +14,7 @@ ENV IDP_HOME=/opt/shibboleth-idp
 ENV JETTY_HOME=${IDP_HOME}/jetty-dist/jetty-home-${JETTY_VERSION}
 ENV JETTY_BASE=${IDP_HOME}/jetty-base-12
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gpg && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gpg openssl && rm -rf /var/lib/apt/lists/*
 
 # --- IdP (unattended). Values are placeholders: this IdP never acts as an IdP.
 WORKDIR /tmp/idp-src
@@ -41,7 +41,7 @@ RUN curl -fsSL https://shibboleth.net/downloads/PGP_KEYS -o /tmp/PGP_KEYS \
  && bin/downloadjetty.sh ${JETTY_VERSION} \
  && rm -f /tmp/PGP_KEYS jetty-dist/jetty-home-${JETTY_VERSION}.tar.gz \
  # plugin pins listeners to 127.0.0.1; the agent lives in another container
- && sed -i 's/^jetty.http.host=127.0.0.1/jetty.http.host=0.0.0.0/' jetty-base-12/start.d/shibboleth.ini \
+ && sed -i 's/^jetty.http.host=127.0.0.1/jetty.http.host=0.0.0.0/; s/^jetty.ssl.host=127.0.0.1/jetty.ssl.host=0.0.0.0/' jetty-base-12/start.d/shibboleth.ini \
  && test -e "${JETTY_HOME}/start.jar"
 
 # --- SP hub plugins (snapshots, signed with the snapshot keyring)
@@ -59,6 +59,16 @@ RUN curl -fsSL https://shibboleth.net/downloads/SHIBBOLETH_SNAPSHOT_PGP_KEYS -o 
  && rm -f /tmp/SNAPSHOT_KEYS \
  && bin/plugin.sh -l
 
+# --- Jetty TLS cert for the agent-facing listener. The installer ignored idp.host.name and
+# issued its cert for the build container's IP, so replace credentials/idp-userfacing.p12
+# (the keystore start.d/shibboleth.ini points at, password "changeit") with hub.localtest.
+RUN openssl req -x509 -nodes -newkey rsa:2048 -days 3650 \
+      -subj "/CN=hub.localtest" -addext "subjectAltName=DNS:hub.localtest" \
+      -keyout /tmp/hub.key -out /tmp/hub.crt \
+ && openssl pkcs12 -export -name hub.localtest -inkey /tmp/hub.key -in /tmp/hub.crt \
+      -out credentials/idp-userfacing.p12 -passout pass:changeit \
+ && rm -f /tmp/hub.key /tmp/hub.crt
+
 # --- OIDC RP keys (OIDCBasics: must exist before credentials import or AgentResolverService fails)
 RUN mkdir -p credentials/sp \
  && bin/jwtgen-sp.sh -t RSA -s 2048 -u sig -i defaultRSASign | tail -n +2 > credentials/sp/sp-signing-rs.jwk \
@@ -69,7 +79,9 @@ RUN mkdir -p credentials/sp \
 #  - oidc-credentials.xml: enables only the client_secret credential
 #  - attribute-filter.xml: releases Google claims; stock policy silently dropped "mail"
 #  - attribute-resolver.xml: empty; stock "uid" definition errors on a hub-only IdP
+#  - agents.xml: the networked agent with basic auth + address check (Phase 2)
 COPY conf/oidc-credentials.xml conf/sp/oidc-credentials.xml
+COPY conf/agents.xml conf/sp/agents.xml
 COPY conf/attribute-filter.xml conf/attribute-filter.xml
 COPY conf/attribute-resolver.xml conf/attribute-resolver.xml
 

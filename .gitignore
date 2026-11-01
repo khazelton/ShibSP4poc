@@ -24,3 +24,4 @@ __pycache__/
 # PoC deploy secrets
 deploy/.env
 deploy/app/secrets/
+deploy/agent/conf/shibboleth-sp/agent.pwd
