@@ -25,11 +25,12 @@ docker compose logs -f hub    # wait for Jetty "Started" and no AgentResolverSer
 curl -k https://localhost/Shibboleth.sso/Status   # agent ↔ hub health
 ```
 
-## 2. First login — discover the redirect URI
+## 2. First login
 
-Browse to `https://localhost/secure/` (accept the self-signed cert). Expected first result: Google error page **`redirect_uri_mismatch`** showing the URI the hub sent. Copy it exactly into the OAuth client's *Authorized redirect URIs*, wait ~1 min, retry. Record the format in `../docs/sp4-research.md` (it is undocumented).
+Redirect URI is now known (discovered from the agent's 302): register
+**`https://localhost/Shibboleth.sso/Validate`** as an *Authorized redirect URI* on the Google OAuth client.
 
-Second attempt: Google login → back to `/secure/` → Jetty page lists `X-Shib-*` headers.
+Browse to `https://localhost/secure/` (accept the self-signed cert) → Google login → back to `/secure/` → Jetty page lists `X-Shib-*` headers. `https://localhost/Shibboleth.sso/Session` shows the agent's view of the session and attribute names.
 
 ## 3. Where things live inside the containers
 

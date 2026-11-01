@@ -38,6 +38,7 @@ services:
       - "80:80"
     volumes:
       - ./agent/conf/agent.ini:/etc/shibboleth-sp/agent.ini:ro
+      - ./agent/conf/handlers.ini:/etc/shibboleth-sp/handlers.ini:ro
       - ./agent/conf/shib4-poc.conf:/etc/httpd/conf.d/shib4-poc.conf:ro
 
   app:

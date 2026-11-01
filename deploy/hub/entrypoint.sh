@@ -25,8 +25,9 @@ setprop "$SP"   sp.issuer                         "${GOOGLE_CLIENT_ID}"
 setprop "$SP"   sp.defaultAuthority               "https://accounts.google.com"
 setprop "$OIDC" sp.oidc.defaultClientSecret       "${GOOGLE_CLIENT_SECRET}"
 setprop "$OIDC" sp.oidc.acceptUnfilteredAttributes "true"        # PoC only; Phase 3 adds a filter
-# Extra scopes beyond openid, else Google returns only "sub". Format per oidc.properties comment.
-setprop "$OIDC" sp.oidc.scopes                    "PROFILE,EMAIL"
+# Extra scopes beyond openid, else Google returns only "sub". Values are sent verbatim
+# (verified: "PROFILE,EMAIL" went out literally), so use the lowercase OIDC scope names.
+setprop "$OIDC" sp.oidc.scopes                    "profile,email"
 
 # Phase 1: agent reaches hub over the docker network with no secret.
 # Phase 2 narrows this and sets sp.agent.authn.method = basic.

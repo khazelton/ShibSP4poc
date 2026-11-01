@@ -70,7 +70,11 @@ OIDC plugin adds:
 - Per-agent OP: `p:authenticatingAuthority="https://op.example.org"`; per-agent client_id: `p:issuer="<client_id>"`.
 - Per-OP secret override: `shibboleth.sp.RelyingPartyOverrides` list, `RelyingPartyByName` bean with `c:relyingPartyIds="<op issuer>"`, `OIDC.SSO` profile with `clientCredential`.
 - Asymmetric keys: `bin/jwtgen-sp.sh -t RSA -s 2048 -u sig -i defaultRSASign | tail -n +2 > credentials/sp/sp-signing-rs.jwk` (and EC/enc variants). Public keys must be registered at OP by hand; RP JWKS endpoint not yet supported.
-- Not documented on OIDCBasics: redirect URI format, scopes, logout config. Check `DefiningRelyingPartyConfiguration` / `AdvancedTopics` or the source.
+- Not documented on OIDCBasics: redirect URI format, scopes, logout config. **Observed 2026-11-01 (beta1 / 0.0.3):**
+  - Redirect URI = agent's TokenConsumer handler: `https://<agent-host>/Shibboleth.sso/Validate` (handler name from `handlers.ini` `[Validate] type = TokenConsumer`). Register this at the OP.
+  - Authorize request: `response_type=code&response_mode=query&scope=openid <extras>&state=…&nonce=…`.
+  - `sp.oidc.scopes` values are sent verbatim — use lowercase `profile,email`, not the `PROFILE`/`EMAIL` the comment hints at.
+  - Agent → hub call for login is `POST /idp/profile/sp/session-initiator`; audit line in `idp-process.log` under `Shibboleth-Audit.SP.SessionInitiator.OIDC`.
 
 ## Agent install / config
 

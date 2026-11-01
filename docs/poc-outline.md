@@ -45,7 +45,7 @@ Jetty app ──Bearer <token>──▶ test API (validates via Google JWKS, aud
 
 ### Phase 0 — OP ready (Google)
 - GCP project (author's). APIs & Services → OAuth consent screen: User type *External*, publishing status *Testing*, add author's Google account as test user. (Workspace account → *Internal* instead.)
-- Create OAuth client, type **Web application**. Record `client_id` / `client_secret`. Authorized redirect URI: **SP v4 hub redirect URI format is undocumented** — leave blank, run Phase 1 once, read the `redirect_uri_mismatch` error page (Google prints the attempted URI), then register it exactly. Expect something under `https://<hub>/idp/profile/sp/oidc/...`.
+- Create OAuth client, type **Web application**. Record `client_id` / `client_secret`. Authorized redirect URI: **`https://localhost/Shibboleth.sso/Validate`** (discovered 2026-11-01 from the agent's 302 — it is the agent's TokenConsumer handler, not a hub URL; the browser never talks to the hub).
 - Create a **service account** in the same project; download JSON key → Jetty host, outside the webapp, mode 600. No GCP roles needed — it only signs assertions.
 - Hub-facing values: `sp.defaultAuthority = https://accounts.google.com`, `sp.issuer = <client_id>`, `sp.oidc.defaultClientSecret = <client_secret>`.
 - Claims available: `sub`, `email`, `email_verified`, `name`, `given_name`, `family_name`, `picture`, `hd` (Workspace only). **No `eppn`** — map `email` in `oidc-claim-rules.xml`. No `end_session_endpoint` → skip logout tests.
