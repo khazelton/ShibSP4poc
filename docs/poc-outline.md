@@ -38,7 +38,7 @@ Jetty app ──Bearer <token>──▶ campus API (validates via OP JWKS or int
 | 5 | App server | Jetty 12 (ee10), same host as agent for PoC; listens on 127.0.0.1 only |
 | 6 | App | Servlet that (a) dumps identity headers and (b) on `/callapi` fetches a `client_credentials` token and calls the test API |
 | 7 | OP client #2 | App's own confidential client at the OP: `grant_types=client_credentials`, scopes/resource for the test API |
-| 8 | Test API | Second servlet (or separate Jetty) that accepts `Bearer`, validates JWT against OP JWKS (nimbus-jose-jwt), echoes claims |
+| 8 | Test API | Second servlet (or separate Jetty) that accepts `Bearer`, validates JWT against OP JWKS (nimbus-jose-jwt), echoes claims. **Stands in for campus APIs for the whole PoC.** Register at OP as unregistered resource server (`encryptionOptional`) or with an `audience` entry |
 
 ## Phases
 
@@ -108,6 +108,6 @@ Directly answers Scott's ACAMP ask: "how do you issue credentials to all these a
 ## Open questions for stakeholders
 
 1. ~~Does the app need tokens or just identity?~~ Resolved: identity via SP v4, plus `client_credentials` tokens for app-as-itself API calls. (If user-delegated tokens ever become a requirement, revisit — SP v4 does not cover that today.)
-2. Can the campus IdP accept **two** test OIDC clients (hub RP + app client_credentials), or do we stand up our own OP? Which campus APIs are the target, and do they already validate OP-issued JWTs?
+2. Can the campus IdP accept **two** test OIDC clients (hub RP + app client_credentials), or do we stand up our own OP? (Target API: decided 2026-11-01 — use the Phase 3b test API for now; real campus APIs out of scope until PoC proves the flow.)
 3. Who owns agent IDs/secrets long term — hub admin or IAM? (Shapes Phase 4.)
 4. Interest in offering results to Shib dev list / Scott as early SP4 feedback?
