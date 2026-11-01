@@ -54,7 +54,9 @@ Jetty app ──Bearer <token>──▶ test API (validates via Google JWKS, aud
 ### Phase 0-alt — campus OP (production target, later)
 - Campus IdP OIDC OP plugin ≥ 3.1. Register two clients: hub RP (auth code, `openid profile email eduperson`) and app client (`client_credentials`, `audience` = test API). Swap `sp.defaultAuthority`/`sp.issuer`/secret, restore `eppn` claim rule, and replace the Phase 3b token client with a plain `client_credentials` POST. Everything else unchanged.
 
-### Phase 1 — Hub up, local agent
+### Phase 1 — Hub up, local agent — **DONE 2026-11-01**
+First browser login succeeded first try: `/secure/` → Google → `/Shibboleth.sso/Validate` → hub `token-consumer` 200 → Jetty page. Stack in `deploy/`; see `deploy/README.md`. Leftover: hub logs `ResolutionException: Attribute Definition 'uid': provided principal name was empty` from the host IdP's stock `attribute-resolver.xml` — harmless, fix in Phase 3.
+
 - Install IdP 5.2+, Jetty plugin. Install snapshot keyring + core + OIDC plugins.
 - Generate JWKs (`bin/jwtgen-sp.sh`), import `oidc-credentials.xml` into `agents.xml`, `oidc-claim-rules.xml` into `default-rules.xml`.
 - `sp.properties`: `sp.issuer = <client_id>`, `sp.defaultAuthority = <OP issuer>`. `oidc.properties`: `sp.oidc.defaultClientSecret`, `sp.oidc.acceptUnfilteredAttributes = true` (PoC only).

@@ -74,7 +74,9 @@ OIDC plugin adds:
   - Redirect URI = agent's TokenConsumer handler: `https://<agent-host>/Shibboleth.sso/Validate` (handler name from `handlers.ini` `[Validate] type = TokenConsumer`). Register this at the OP.
   - Authorize request: `response_type=code&response_mode=query&scope=openid <extras>&state=…&nonce=…`.
   - `sp.oidc.scopes` values are sent verbatim — use lowercase `profile,email`, not the `PROFILE`/`EMAIL` the comment hints at.
-  - Agent → hub call for login is `POST /idp/profile/sp/session-initiator`; audit line in `idp-process.log` under `Shibboleth-Audit.SP.SessionInitiator.OIDC`.
+  - Agent → hub calls: `POST /idp/profile/sp/ping` (Status handler), `POST /idp/profile/sp/session-initiator` (login start), `POST /idp/profile/sp/token-consumer` (code exchange + claims). Audit lines in `idp-process.log` under `Shibboleth-Audit.SP.SessionInitiator.OIDC` / `Shibboleth-Audit.SP.TokenConsumer.OIDC`.
+  - The hub runs the host IdP's `AttributeResolverService`; the stock `conf/attribute-resolver.xml` `uid` (PrincipalName) definition then logs `ResolutionException … principal name was empty` on every login. Cosmetic; empty that file or remove the definition on a hub-only install.
+  - Google end-to-end login (auth code, `client_secret_basic`, scopes `openid profile email`) worked unmodified on SP 4.0.0beta1 + hub 0.0.3-20261101 snapshot.
 
 ## Agent install / config
 
