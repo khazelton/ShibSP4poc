@@ -1,0 +1,22 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+id_rsa*
+credentials*
+
+# Build / deps
+node_modules/
+dist/
+build/
+target/
+.venv/
+__pycache__/
