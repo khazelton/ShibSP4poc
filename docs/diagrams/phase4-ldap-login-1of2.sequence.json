@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "SP4 PoC — Phase 4 login, page 1 of 2: login start and Google authentication",
+    "output": "docs/diagrams/phase4-ldap-login-1of2.html",
+    "viewBox": [1340, 560],
+    "quality_profile": "showcase",
+    "column_fit": "spread"
+  },
+  "participants": [
+    { "id": "browser", "type": "external", "label": "Browser" },
+    { "id": "agent", "type": "security", "label": "Agent (Apache + mod_shib4)" },
+    { "id": "hub", "type": "backend", "label": "Hub (IdP + shibd 0.0.3)" },
+    { "id": "google", "type": "cloud", "label": "Google OP" },
+    { "id": "ldap", "type": "database", "label": "LDAP (lldap)" },
+    { "id": "app", "type": "frontend", "label": "App (Jetty 12)" }
+  ],
+  "segments": [
+    { "from": 150, "to": 326, "label": "Login start" },
+    { "from": 338, "to": 452, "label": "Google authentication — continues on page 2" }
+  ],
+  "messages": [
+    { "id": "m01", "from": "browser", "to": "agent",  "y": 180, "label": "GET /secure/ (no session)", "variant": "emphasis" },
+    { "id": "m02", "from": "agent",   "to": "hub",    "y": 214, "label": "POST sp/session-initiator — TLS 8443, basic sp4-agent", "variant": "security" },
+    { "id": "m03", "from": "hub",     "to": "ldap",   "y": 248, "label": "bind uid=sp4-agent,ou=people,dc=localtest", "variant": "security" },
+    { "id": "m04", "from": "ldap",    "to": "hub",    "y": 282, "label": "bind OK → spagent-ldap succeeded", "variant": "return" },
+    { "id": "m05", "from": "hub",     "to": "agent",  "y": 316, "label": "authorize URL + sealed state (DDF, HTTP 200)", "variant": "return" },
+    { "id": "m06", "from": "agent",   "to": "browser","y": 364, "label": "302 → Google authorize (openid profile email, state, nonce)", "variant": "return" },
+    { "id": "m07", "from": "browser", "to": "google", "y": 398, "label": "login / silent SSO", "variant": "emphasis" },
+    { "id": "m08", "from": "google",  "to": "browser","y": 432, "label": "302 → https://localhost/Shibboleth.sso/Validate?code&state", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "agent",  "from": 174, "to": 322, "type": "security" },
+    { "participant": "hub",    "from": 208, "to": 322, "type": "backend" },
+    { "participant": "ldap",   "from": 242, "to": 288, "type": "database" },
+    { "participant": "google", "from": 392, "to": 438, "type": "cloud" }
+  ],
+  "cards": [
+    { "dot": "violet", "title": "Agent credentials live in LDAP", "items": ["Each agent→hub call is HTTP basic over TLS; the hub's LDAPCredentialValidator binds as uid=sp4-agent", "agents.xml holds no secret — rotating the LDAP password + agent.pwd never restarts the hub", "Redirect URI is the agent's /Shibboleth.sso/Validate; the browser never reaches the hub (page 2 continues from here)"] }
+  ]
+}
