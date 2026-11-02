@@ -1,6 +1,6 @@
 # Draft post for dev@shibboleth.net
 
-Status: draft, 2026-11-02. Plain text below is meant to be pasted as-is. Everything in it was observed in this repo's `deploy/` stack; file references point at that stack.
+Status: **sent** to dev@shibboleth.net on 2026-11-01 (after Keith's review). Text below is the draft it was based on; everything in it was observed in this repo's `deploy/` stack, and file references point at that stack. Replies and follow-ups: track in `docs/poc-outline.md` Phase 4.
 
 ---
 

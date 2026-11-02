@@ -111,6 +111,8 @@ Directly answers Scott's ACAMP ask: "how do you issue credentials to all these a
 3. **`p:usernames` cannot work with external validators**: `ValidateAgentCredentials.buildAuthenticationResult` requires `UsernamePrincipal(agent.getId())` in the Subject; only the internal validator produces that. With LDAP the presented username *must equal the agent id* — the identity/credential decoupling described at ACAMP isn't wired through yet. Workaround used: `p:id` = LDAP `uid` = `agent.ini agentID` = `sp4-agent`.
 4. Agent has no separate username setting; `agentID` is the basic-auth username (confirmed in RemotingSettings). Any decoupling must be hub-side.
 
+**Reported:** findings 1–4 (plus the `mail` filter and installer-cert items) sent to dev@shibboleth.net on 2026-11-01 — see `docs/dev-list-writeup.md`. Watch the list for replies from Scott / the SP4 team and record outcomes here.
+
 **Open:** midPoint (image already local) as the IGA source provisioning the lldap accounts; htpasswd validator as the "no directory" option; generating `agents.xml` from the directory.
 
 - Baseline: document what a hub operator does per agent today (bean in `agents.xml`, secret, IP range, issuer, OP client registration).
