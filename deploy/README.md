@@ -40,7 +40,7 @@ Browse to `https://localhost/secure/` (accept the self-signed cert) → Google l
 
 ## Phase 2 (applied)
 
-- `./gen-agent-secret.sh` once (and to rotate): writes `AGENT_SECRET` to `.env` (hub) and `agent/conf/shibboleth-sp/agent.pwd` (agent).
+- `./gen-agent-secret.sh <username>` once (and to rotate): writes `agent/conf/shibboleth-sp/agent.pwd` and sets that user's password in lldap (Phase 4 superseded the earlier `AGENT_SECRET` env var; the hub no longer holds the secret).
 - hub: `sp.agent.authn.method = basic`; agent bean `sp4-agent.localtest` in `hub/conf/agents.xml` with `allowedAddressRanges=172.30.0.20/32`; TLS on 8443 with a build-time self-signed cert for `hub.localtest`, PEM exported to the `hub-tls` volume at start.
 - agent: pinned `172.30.0.20`; `agent.ini` → `https://hub.localtest:8443/…`, `authMethod = basic`, `tlsCAFile=/etc/pki/sp4-hub/hub.crt`, `secretFile=/etc/shibboleth-sp/agent.pwd`.
 - Negative tests (wrong secret / wrong IP) — see `docs/poc-outline.md` Phase 2. Responses are HTTP 200 with `event InvalidCredentials` / `AccessDenied` in the body.

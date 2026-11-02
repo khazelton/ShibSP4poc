@@ -4,33 +4,64 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # ShibSP4poc
 
-Proof-of-concept notes and work toward an OAuth2/OIDC login for a campus app behind a Shibboleth SP v4 endpoint registered with the SP v4 Hub.
+Proof-of-concept of OIDC login for a campus app behind a Shibboleth SP v4 agent registered with an SP v4 Hub, plus the app minting its own tokens to call an API. Built and verified end to end on 2026-11-01 (Phases 0–4 of `docs/poc-outline.md`). Findings were emailed to dev@shibboleth.net the same day; replies are the next input.
 
-## Current state
+## Read first
 
-No code yet — no build, lint, or test commands exist. Repo is notes-only:
-- `README.md` — problem statement plus raw session notes (TechEx 2026, Scott Cantor's "Scaling Shibboleth 4 SP deployments" talk). Treat it as the source of truth for goals and open questions.
-- `docs/sp4-research.md` — digested SP v4 hub/agent/OIDC docs with exact config keys and a page index. Read this before fetching Shibboleth wiki pages again.
-- `docs/poc-outline.md` — phased PoC plan and open questions.
-- `memory/` — project working notes (empty placeholder).
+- `docs/poc-outline.md` — phased plan, what was observed per phase, open items. Start here.
+- `docs/sp4-research.md` — digest of the SP4 wiki pages (config keys, versions, defects). Do not re-fetch wiki pages before reading it.
+- `docs/dev-list-writeup.md` — the sent findings post; hub 0.0.3 defects #1–#7 with exact config.
+- `docs/session-walkthrough-2026-11-01.md` — annotated history of how the stack was built and why.
+- `deploy/README.md` — runbook: Google setup, build, first login, Phase 2/3b/4 details.
+- `README.md` — original problem statement and TechEx/ACAMP session notes.
 
-Update this file with real commands once a toolchain is chosen.
+## Running the stack
 
-## Problem framing
+Everything lives in `deploy/` (Docker Compose, fixed subnet 172.30.0.0/24).
 
-- **Problem:** an on-campus app wants to accept authentication over OAuth2/OIDC.
-- **Context:** campus runs Shibboleth SP v4 on top of Shibboleth IdP v4.2+.
-- **Deliverable:** OAuth2/OIDC login for that app, fronted by an SP v4 OAuth2 endpoint registered with the SP v4 Hub.
+```sh
+cd deploy
+docker compose up -d                     # normal start; images already built
+docker compose down                      # stop; named volumes survive
+docker compose build hub && docker compose up -d hub            # after hub/ changes
+docker compose build app && docker compose up -d --force-recreate app   # after Java/JSP changes
+docker compose up -d --no-deps --force-recreate agent           # after agent/conf/ changes (bind-mounted)
+curl -sk https://localhost/Shibboleth.sso/Status | grep -o '<RemotingService><OK/>'   # agent↔hub health
+docker compose logs -f hub               # IdP/Jetty startup; per-request logs in volume hub-logs (idp-process*.log)
+```
 
-## SP v4 Hub/Agent model (key concepts from notes)
+Services: `ldap` (lldap, .40, UI 127.0.0.1:17170), `hub` (IdP 5.2.3 + Jetty 12.1 + shibd 0.0.3 snapshot plugins, .10, alias `hub.localtest`, 8080/8443), `agent` (Rocky 9 httpd + `shibboleth-sp-4.0.0beta1`, .20, https://localhost), `app` (Jetty 12, Maven multi-module, .30, agent-only).
 
-- SP v4 splits the SP into lightweight **agents** (at each app) and a central **hub**. Agent↔hub transport is plain HTTP(S); "Jetty/http is all you need."
-- Agent authentication to the hub: v1 is basic auth over TLS with a client ID + shared secret per agent. Manually provisioning these for ~200 SPs is the core pain point; hub-side authN should handle it better.
-- Client ID/secret lifecycle at scale is really an IAM/IGA (service-account management) problem, not a hub-admin job — this is the gap the PoC is meant to explore (possibly via midPoint, Evolveum/Unicon work).
-- Hub v1 stores agent records in a flat file; longer term, a delegated model with a simple GUI over a DB, possibly carrying SP "metadata". Think of the hub as a proxy/appliance, **not** as doing federation.
+URLs: `https://localhost/secure/` (login + headers), `https://localhost/secure/callapi` (service-account token → test API), `https://localhost/Shibboleth.sso/Session`.
 
-## References
+Build is Docker-only: no local Maven/Java toolchain is expected. `app/` is built inside its multi-stage Dockerfile; there are no unit tests.
 
-- SP v4 redesign hub page: https://shibboleth.atlassian.net/wiki/spaces/DEV/pages/2981429255/Service+Provider+V4+Redesign
-- Original SP4 discussion: https://shibboleth.atlassian.net/wiki/spaces/DEV/pages/1203471357/SP4Details
-- Newer design notes: https://shibboleth.atlassian.net/wiki/spaces/DEV/pages/2110391683/DesignNotes
+### Secrets (gitignored, must exist before `up`)
+
+- `deploy/.env` — `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (template `.env.example`).
+- `deploy/app/secrets/sa.json` — Google service-account key for Phase 3b.
+- `deploy/agent/conf/shibboleth-sp/agent.pwd` — agent secret; written by `./gen-agent-secret.sh sp4-agent`, which also sets the lldap password.
+
+If volumes were wiped (`down -v`): `./ldap-seed.sh && ./gen-agent-secret.sh sp4-agent && docker compose up -d --no-deps --force-recreate agent`.
+
+Never commit or print secrets; redact client IDs, `sub` values and emails when quoting logs.
+
+## Architecture in one paragraph
+
+Browser → agent (`mod_shib4`, `/secure` requires a session) → agent calls hub `sp/session-initiator` over TLS with basic auth (`agentID=sp4-agent`; hub validates against lldap via `LDAPCredentialValidator`) → hub returns Google authorize URL → browser logs in at Google → redirect URI is the agent's `/Shibboleth.sso/Validate` → agent calls hub `sp/token-consumer` → hub does code exchange, JWKS validation, UserInfo, claim transcoding and attribute filtering → attributes land in the agent session → Apache exports them as `X-Shib-*` headers and proxies to Jetty. Separately, the app signs a JWT-bearer assertion with the service-account key, gets a Google ID token with `aud=API_AUDIENCE`, and the test API at `/api/echo` validates it against Google's JWKS. Diagrams: `docs/diagrams/phase4-ldap-login*.html` (archify; `.sequence.json` is the source).
+
+Hub config applied at container start by `deploy/hub/entrypoint.sh` (sp.properties, oidc.properties, LDAP validator beans in `global.xml`). Static hub files in `deploy/hub/conf/`. Agent↔hub responses are always HTTP 200; the outcome is `event 1 <Name>` in the DDF body.
+
+## Hub 0.0.3 quirks that shape the config (details in `docs/dev-list-writeup.md`)
+
+- Documented `shibboleth.sp.AgentSecretValidator` / `shibboleth.sp.LDAPValidator` refs are flow-scoped; validators are declared by class in `global.xml`.
+- SP's LDAP factory bean lacks `startTLSTimeout`/`autoReconnect`/`reconnectTimeout`; the entrypoint passes the full IdP property set.
+- With an external validator the presented username must equal the agent `p:id`; `p:usernames` does not work. Hence id = uid = `agentID` = `sp4-agent`.
+- Stock IdP `attribute-filter.xml` drops `mail`; `deploy/hub/conf/attribute-filter.xml` replaces it.
+- Snapshot plugins are resolved at build time (newest tarball with a `.asc`); a rebuild can pick up a newer nightly and change the above.
+
+## Conventions
+
+- Phase findings go in `docs/poc-outline.md`; new wiki facts go in `docs/sp4-research.md`.
+- Single-file bind mounts break on inode change: mount directories.
+- Commit messages: Conventional Commits, normal prose.
