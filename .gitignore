@@ -28,3 +28,4 @@ deploy/agent/conf/shibboleth-sp/agent.pwd
 
 # archify visual-check evidence (regenerable)
 docs/diagrams/*.visual-check.*
+docs/diagrams/*.delivery.json
