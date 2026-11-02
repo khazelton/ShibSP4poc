@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "SP4 PoC — Phase 4 login with LDAP-validated agent",
+    "output": "docs/diagrams/phase4-ldap-login.html",
+    "viewBox": [1080, 1040],
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      { "id": "start", "label": "Login start", "focus": ["browser", "agent", "hub", "ldap"], "note": "Every agent→hub call is basic-auth as sp4-agent; the hub binds to LDAP to check it." },
+      { "id": "authn", "label": "Google authentication", "focus": ["browser", "google", "agent"], "note": "The browser never talks to the hub; the redirect URI is the agent's Validate handler." },
+      { "id": "exchange", "label": "Code exchange and claims", "focus": ["hub", "google", "ldap", "agent"], "note": "Hub exchanges the code, calls UserInfo, transcodes and filters claims, returns attributes." },
+      { "id": "app", "label": "Protected request", "focus": ["browser", "agent", "app"], "note": "Identity crosses the proxy hop as X-Shib-* headers set by Apache from env vars." }
+    ]
+  },
+  "participants": [
+    { "id": "browser", "type": "external", "label": "Browser", "sublabel": "user" },
+    { "id": "agent", "type": "security", "label": "Agent", "sublabel": "Apache + mod_shib4 beta1" },
+    { "id": "hub", "type": "backend", "label": "Hub", "sublabel": "IdP 5.2.3 + shibd 0.0.3" },
+    { "id": "google", "type": "cloud", "label": "Google OP", "sublabel": "accounts.google.com" },
+    { "id": "ldap", "type": "database", "label": "LDAP", "sublabel": "lldap, agent accounts" },
+    { "id": "app", "type": "frontend", "label": "App", "sublabel": "Jetty 12" }
+  ],
+  "segments": [
+    { "from": 150, "to": 348, "label": "Login start" },
+    { "from": 360, "to": 474, "label": "Google authentication" },
+    { "from": 486, "to": 812, "label": "Code exchange and claims" },
+    { "from": 822, "to": 958, "label": "Protected request" }
+  ],
+  "messages": [
+    { "id": "m01", "from": "browser", "to": "agent",  "y": 180, "label": "GET /secure/ (no session)", "variant": "emphasis" },
+    { "id": "m02", "from": "agent",   "to": "hub",    "y": 216, "label": "POST sp/session-initiator — TLS 8443, basic sp4-agent", "variant": "security" },
+    { "id": "m03", "from": "hub",     "to": "ldap",   "y": 252, "label": "bind uid=sp4-agent,ou=people,dc=localtest", "variant": "security" },
+    { "id": "m04", "from": "ldap",    "to": "hub",    "y": 288, "label": "bind OK → spagent-ldap succeeded", "variant": "return" },
+    { "id": "m05", "from": "hub",     "to": "agent",  "y": 324, "label": "authorize URL + sealed state (DDF, HTTP 200)", "variant": "return" },
+    { "id": "m06", "from": "agent",   "to": "browser","y": 384, "label": "302 → /o/oauth2/v2/auth?scope=openid profile email, state, nonce", "variant": "return" },
+    { "id": "m07", "from": "browser", "to": "google", "y": 420, "label": "login / silent SSO", "variant": "emphasis" },
+    { "id": "m08", "from": "google",  "to": "browser","y": 456, "label": "302 → https://localhost/Shibboleth.sso/Validate?code&state", "variant": "return" },
+    { "id": "m09", "from": "browser", "to": "agent",  "y": 510, "label": "GET /Shibboleth.sso/Validate?code&state", "variant": "emphasis" },
+    { "id": "m10", "from": "agent",   "to": "hub",    "y": 546, "label": "POST sp/token-consumer — basic sp4-agent", "variant": "security" },
+    { "id": "m11", "from": "hub",     "to": "ldap",   "y": 582, "label": "bind uid=sp4-agent (no cached auth)", "variant": "security" },
+    { "id": "m12", "from": "ldap",    "to": "hub",    "y": 618, "label": "bind OK", "variant": "return" },
+    { "id": "m13", "from": "hub",     "to": "google", "y": 654, "label": "POST /token — code, client_secret_basic", "variant": "emphasis" },
+    { "id": "m14", "from": "google",  "to": "hub",    "y": 690, "label": "id_token + access_token (RS256 via JWKS)", "variant": "return" },
+    { "id": "m15", "from": "hub",     "to": "google", "y": 726, "label": "GET /v1/userinfo — Bearer access_token", "variant": "default" },
+    { "id": "m16", "from": "google",  "to": "hub",    "y": 762, "label": "claims: sub, email, name, given_name, family_name, picture, hd", "variant": "return" },
+    { "id": "m17", "from": "hub",     "to": "agent",  "y": 798, "label": "attributes sub, mail, displayName, givenName, sn + session data (after filter)", "variant": "return" },
+    { "id": "m18", "from": "agent",   "to": "browser","y": 834, "label": "302 → /secure/ + __Host-shibsession cookie", "variant": "return" },
+    { "id": "m19", "from": "browser", "to": "agent",  "y": 870, "label": "GET /secure/ (session cookie)", "variant": "emphasis" },
+    { "id": "m20", "from": "agent",   "to": "app",    "y": 906, "label": "ProxyPass → :8081 with X-Shib-Sub/-Mail/-DisplayName/-GivenName/-Sn", "variant": "emphasis" },
+    { "id": "m21", "from": "app",     "to": "browser","y": 942, "label": "200 identity page", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "agent",  "from": 174, "to": 330, "type": "security" },
+    { "participant": "hub",    "from": 210, "to": 330, "type": "backend" },
+    { "participant": "ldap",   "from": 246, "to": 294, "type": "database" },
+    { "participant": "google", "from": 414, "to": 462, "type": "cloud" },
+    { "participant": "agent",  "from": 504, "to": 840, "type": "security" },
+    { "participant": "hub",    "from": 540, "to": 804, "type": "backend" },
+    { "participant": "ldap",   "from": 576, "to": 624, "type": "database" },
+    { "participant": "google", "from": 648, "to": 768, "type": "cloud" },
+    { "participant": "agent",  "from": 864, "to": 948, "type": "security" },
+    { "participant": "app",    "from": 900, "to": 948, "type": "frontend" }
+  ],
+  "cards": [
+    { "dot": "violet", "title": "Agent credentials live in LDAP", "items": ["Every agent→hub call is HTTP basic over TLS, validated by the hub's LDAPCredentialValidator (uid=%s,ou=people,dc=localtest)", "agents.xml holds no secret; rotating the LDAP password + agent.pwd never restarts the hub", "Hub 0.0.3: presented username must equal the agent id (p:usernames not honoured by external validators)"] },
+    { "dot": "cyan", "title": "Browser never reaches the hub", "items": ["Redirect URI is the agent's TokenConsumer handler /Shibboleth.sso/Validate", "Hub does code exchange, JWKS validation, UserInfo, claim transcoding (email→mail, name→displayName) and filtering", "App sees only X-Shib-* headers set by Apache; Jetty is reachable from the agent alone"] }
+  ]
+}
