@@ -8,16 +8,42 @@
 # self-signed cert exported into the hub-tls volume). Run ./gen-agent-secret.sh once.
 
 services:
+  # Phase 4: directory holding the agents' service accounts. Stands in for the campus
+  # LDAP/AD that an IGA tool (midPoint etc.) would provision. Admin UI on 127.0.0.1:17170.
+  ldap:
+    image: lldap/lldap:stable
+    container_name: sp4-ldap
+    environment:
+      LLDAP_LDAP_BASE_DN: dc=localtest
+      LLDAP_LDAP_USER_PASS: ${LDAP_ADMIN_PASSWORD:-poc-admin-password}
+      LLDAP_JWT_SECRET: ${LDAP_JWT_SECRET:-poc-jwt-secret-change-me}
+      LLDAP_KEY_SEED: ${LDAP_KEY_SEED:-poc-key-seed-change-me}
+    networks:
+      poc:
+        ipv4_address: 172.30.0.40
+    ports:
+      - "127.0.0.1:17170:17170"
+    volumes:
+      - ldap-data:/data
+      - ./ldap/bootstrap:/bootstrap:ro
+
   hub:
     build: ./hub
     image: sp4-hub:dev          # same tag whether built by compose or `docker build -t`
     container_name: sp4-hub
     hostname: hub.localtest
+    depends_on:
+      ldap:
+        condition: service_started
     environment:
-      # Google OAuth client (Phase 0) and agent secret (Phase 2). Values live in deploy/.env (gitignored).
+      # Google OAuth client (Phase 0). Values live in deploy/.env (gitignored).
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set in deploy/.env}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?set in deploy/.env}
-      AGENT_SECRET: ${AGENT_SECRET:?run ./gen-agent-secret.sh}
+      # Phase 4: hub validates agent basic-auth against the ldap service. No agent secret
+      # reaches the hub any more (Phase 2 put it here as AGENT_SECRET), so rotating a
+      # credential changes nothing in the hub's config or environment.
+      AGENT_LDAP_URL: ldap://ldap:3890
+      AGENT_LDAP_DNFORMAT: uid=%s,ou=people,dc=localtest
     networks:
       poc:
         ipv4_address: 172.30.0.10
@@ -84,3 +110,4 @@ volumes:
   hub-logs:
   hub-tls:
   agent-sessions:
+  ldap-data:

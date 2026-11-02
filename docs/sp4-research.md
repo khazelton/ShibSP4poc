@@ -89,6 +89,13 @@ Agent authentication, observed (Phase 2):
   - IdP installer under Docker ignored `idp.host.name` for the Jetty cert (`CN=<build container IP>`); replace `credentials/idp-userfacing.p12` yourself. Agent TLS trust is a plain PEM via `tlsCAFile`; hostname must match SAN. `jetty.ssl.host` also needs opening from 127.0.0.1.
   - Agent's own `/idp/status` probe from the agent IP gets 403 — IdP status page ACL, unrelated to agent auth.
 
+External agent-credential validation, observed (Phase 4, hub 0.0.3-20261101 + IdP 5.2.3):
+  - Validators shipped (in `sp-abstract-beans.xml`, flow scope): `shibboleth.sp.AgentSecretValidator` (`AgentSecretCredentialValidator`, id `spagent-internal`), `shibboleth.sp.LDAPValidator` (IdP `LDAPCredentialValidator`, `spagent-ldap`), `shibboleth.sp.HTPasswdValidator` (abstract, IdP `HTPasswdCredentialValidator`), `shibboleth.sp.JAASValidator`, `shibboleth.sp.KerberosValidator`. Selected via `getObject('shibboleth.sp.AgentValidators') ?: getObject('DefaultAgentValidators')` on `ValidateAgentCredentials` (`requireAll` from `sp.agent.authn.requireAll`, default false).
+  - `global.xml` is the root context; it cannot `ref` those flow-scoped beans → declare by class there. Working LDAP definition: `net.shibboleth.idp.authn.config.LDAPAuthenticationFactoryBean` with the full property set from the IdP's `password-authn-beans.xml` (incl. `autoReconnect`, `reconnectTimeout`, `startTLSTimeout`), `trustType=jvmTrust`, then `LDAPCredentialValidator p:authenticator-ref`.
+  - Internal validator with no local secret logs `No shared secrets configured locally for agent '<id>', ignoring` and defers — so internal + LDAP can coexist per agent.
+  - `ValidateAgentCredentials.buildAuthenticationResult` checks `subject.getPrincipals(UsernamePrincipal).contains(new UsernamePrincipal(agent.getId()))` → external validators only work when username == agent id; `p:usernames` is effectively dead code for them in this build.
+  - lldap specifics: bootstrap wants one JSON object per file under `/bootstrap/user-configs`; `/app/lldap_set_password --base-url http://localhost:17170 --admin-username admin --admin-password … --username U --password P` for rotation; bind DN `uid=U,ou=people,dc=localtest`; LDAP port 3890, UI 17170.
+
 ## Agent install / config
 
 - Supported: Apache 2.4 only; RHEL/Rocky 8/9/10, Amazon Linux 2023 (x86_64, aarch64); Windows (IIS, Apache Lounge). MPM worker/event, not prefork.

@@ -33,9 +33,79 @@ setprop "$OIDC" sp.oidc.scopes                    "profile,email"
 # The global range stays at the loopback default; each Agent bean in agents.xml
 # carries its own allowedAddressRanges. The secret is referenced from agents.xml
 # as %{poc.agent.secret}.
-: "${AGENT_SECRET:?AGENT_SECRET not set - run ./gen-agent-secret.sh}"
 setprop "$SP"   sp.agent.authn.method   "basic"
-setprop "$SP"   poc.agent.secret        "${AGENT_SECRET}"
+setprop "$SP"   poc.agent.secret        "${AGENT_SECRET:-unset}"
+
+# Phase 4: validate agent credentials against LDAP (service accounts), in addition to
+# the in-config validator. Bean list must live in conf/global.xml (not agents.xml).
+if [ -n "${AGENT_LDAP_URL:-}" ]; then
+  setprop "$SP" sp.agent.authn.LDAP.authenticator "directAuthenticator"
+  setprop "$SP" sp.agent.authn.LDAP.ldapURL       "${AGENT_LDAP_URL}"
+  setprop "$SP" sp.agent.authn.LDAP.dnFormat      "${AGENT_LDAP_DNFORMAT:-uid=%s,ou=people,dc=localtest}"
+  setprop "$SP" sp.agent.authn.LDAP.useStartTLS   "false"
+  setprop "$SP" sp.agent.authn.LDAP.sslConfig     "jvmTrust"
+  # NOTE: the documented form (<ref bean="shibboleth.sp.AgentSecretValidator"/> and
+  # <bean parent="shibboleth.sp.LDAPValidator"/>) fails on hub 0.0.3 with
+  # NoSuchBeanDefinitionException: those beans live in the SP flow context, which the
+  # root context (global.xml) cannot see. Define the validators by class instead.
+  if ! grep -q 'shibboleth.sp.AgentValidators' conf/global.xml; then
+    cat > /tmp/validators.xml <<'XML'
+    <!-- SP hub: agent credential validators (PoC Phase 4). See hub/entrypoint.sh. -->
+    <!-- Same property set as the plugin's shibboleth.sp.LDAPAuthenticationFactory, minus the
+         flow-scoped trust-config refs (unused with jvmTrust). Values come from sp.properties. -->
+    <bean id="poc.AgentLDAPAuthenticator"
+          class="net.shibboleth.idp.authn.config.LDAPAuthenticationFactoryBean"
+          p:authenticatorType="#{'%{sp.agent.authn.LDAP.authenticator:directAuthenticator}'.trim()}"
+          p:trustType="#{'%{sp.agent.authn.LDAP.sslConfig:jvmTrust}'.trim()}"
+          p:connectionStrategyType="#{'%{sp.agent.authn.LDAP.connectionStrategy:ACTIVE_PASSIVE}'.trim()}"
+          p:ldapUrl="%{sp.agent.authn.LDAP.ldapURL}"
+          p:useStartTLS="%{sp.agent.authn.LDAP.useStartTLS:false}"
+          p:startTLSTimeout="%{sp.agent.authn.LDAP.startTLSTimeout:PT3S}"
+          p:connectTimeout="%{sp.agent.authn.LDAP.connectTimeout:PT3S}"
+          p:responseTimeout="%{sp.agent.authn.LDAP.responseTimeout:PT3S}"
+          p:autoReconnect="%{sp.agent.authn.LDAP.autoReconnect:true}"
+          p:reconnectTimeout="%{sp.agent.authn.LDAP.reconnectTimeout:PT10S}"
+          p:accountStateExpirationPeriod="%{sp.agent.authn.LDAP.accountStateExpirationPeriod:#{null}}"
+          p:accountStateWarningPeriod="%{sp.agent.authn.LDAP.accountStateWarningPeriod:#{null}}"
+          p:disablePooling="%{sp.agent.authn.LDAP.disablePooling:false}"
+          p:blockWaitTime="%{sp.agent.authn.pool.LDAP.blockWaitTime:PT3S}"
+          p:minPoolSize="%{sp.agent.authn.pool.LDAP.minSize:3}"
+          p:maxPoolSize="%{sp.agent.authn.pool.LDAP.maxSize:10}"
+          p:validateOnCheckout="%{sp.agent.authn.pool.LDAP.validateOnCheckout:false}"
+          p:validatePeriodically="%{sp.agent.authn.pool.LDAP.validatePeriodically:true}"
+          p:validatePeriod="%{sp.agent.authn.pool.LDAP.validatePeriod:PT5M}"
+          p:validateDn="#{'%{sp.agent.authn.pool.LDAP.validateDN:}'.trim()}"
+          p:validateFilter="#{'%{sp.agent.authn.pool.LDAP.validateFilter:(objectClass=*)}'.trim()}"
+          p:bindPoolPassivatorType="#{'%{sp.agent.authn.LDAP.bindPoolPassivator:none}'.trim()}"
+          p:prunePeriod="%{sp.agent.authn.pool.LDAP.prunePeriod:PT5M}"
+          p:idleTime="%{sp.agent.authn.pool.LDAP.idleTime:PT10M}"
+          p:dnFormat="%{sp.agent.authn.LDAP.dnFormat}"
+          p:baseDn="#{'%{sp.agent.authn.LDAP.baseDN:undefined}'.trim()}"
+          p:userFilter="#{'%{sp.agent.authn.LDAP.userFilter:undefined}'.trim()}"
+          p:subtreeSearch="%{sp.agent.authn.LDAP.subtreeSearch:false}"
+          p:resolveEntryOnFailure="%{sp.agent.authn.LDAP.resolveEntryOnFailure:false}"
+          p:resolveEntryWithBindDn="%{sp.agent.authn.LDAP.resolveEntryWithBindDN:false}"
+          p:velocityEngine-ref="shibboleth.VelocityEngine"
+          p:bindDn="#{'%{sp.agent.authn.LDAP.bindDN:undefined}'.trim()}"
+          p:bindDnCredential="%{sp.agent.authn.LDAP.bindDNCredential:undefined}"
+          p:usePasswordPolicy="%{sp.agent.authn.LDAP.usePasswordPolicy:false}"
+          p:usePasswordExpiration="%{sp.agent.authn.LDAP.usePasswordExpiration:false}"
+          p:activeDirectory="%{sp.agent.authn.LDAP.activeDirectory:false}"
+          p:freeIPA="%{sp.agent.authn.LDAP.freeIPADirectory:false}"
+          p:EDirectory="%{sp.agent.authn.LDAP.eDirectory:false}"
+          p:accountStateLoginFailures="%{sp.agent.authn.LDAP.accountStateLoginFailures:0}" />
+
+    <util:list id="shibboleth.sp.AgentValidators">
+        <bean class="net.shibboleth.sp.authn.impl.AgentSecretCredentialValidator" p:id="spagent-internal" />
+        <bean class="net.shibboleth.idp.authn.impl.LDAPCredentialValidator" p:id="spagent-ldap"
+              p:authenticator-ref="poc.AgentLDAPAuthenticator" />
+    </util:list>
+
+</beans>
+XML
+    perl -0pi -e 'BEGIN{local $/; open F,"</tmp/validators.xml"; $r=<F>; close F} s|</beans>\s*$|$r|' conf/global.xml
+  fi
+fi
 
 # Export the hub's TLS cert (made by the IdP installer for hub.localtest) for agents.
 if [ -d /tls-export ]; then

@@ -45,6 +45,13 @@ Browse to `https://localhost/secure/` (accept the self-signed cert) → Google l
 - agent: pinned `172.30.0.20`; `agent.ini` → `https://hub.localtest:8443/…`, `authMethod = basic`, `tlsCAFile=/etc/pki/sp4-hub/hub.crt`, `secretFile=/etc/shibboleth-sp/agent.pwd`.
 - Negative tests (wrong secret / wrong IP) — see `docs/poc-outline.md` Phase 2. Responses are HTTP 200 with `event InvalidCredentials` / `AccessDenied` in the body.
 
+## Phase 4 (applied) — agent credentials in LDAP, not in the hub
+
+- `ldap` service (lldap; UI http://127.0.0.1:17170, admin / `LDAP_ADMIN_PASSWORD` or `poc-admin-password`). Accounts from `ldap/bootstrap/user-configs/*.json` via `./ldap-seed.sh`.
+- hub: `global.xml` gets `shibboleth.sp.AgentValidators` = internal + `LDAPCredentialValidator` (`hub/entrypoint.sh`, class-based because the documented `ref`s are not visible from the root context). `agents.xml` agent `sp4-agent` has no secret.
+- agent: `agentID = sp4-agent` (must equal the hub-side id on hub 0.0.3 — see `docs/poc-outline.md` Phase 4 findings), `agent.pwd` from `./gen-agent-secret.sh sp4-agent`.
+- Rotate: `./gen-agent-secret.sh sp4-agent && docker compose up -d --no-deps --force-recreate agent`. Hub untouched.
+
 ## Phase 3b (applied)
 
 - Service-account JSON key at `app/secrets/sa.json` (gitignored, excluded from the build context).

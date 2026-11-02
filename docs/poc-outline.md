@@ -100,8 +100,18 @@ Independent of Phases 1–3; can run in parallel once Phase 0 is done. Google ha
 - Negative: wrong `target_audience` or expired token → 401 from API.
 - Campus-OP variant (Phase 0-alt): replace steps 1–3 with a `client_credentials` POST; OP side needs plugin V3.1+, `client_credentials` in `idp.oauth2.grantTypes` or on the client's `OAUTH2.Token` bean, `OAUTH2.Token` + `OAUTH2.TokenAudience` in `relying-party.xml`, `accessTokenType="JWT"`, and an `audience` in client metadata or `idp.oauth2.defaultAllowedAudience` (OP refuses tokens without `aud`). Test API swaps JWKS URL and `iss`.
 
-### Phase 4 (stretch) — Agent registration at scale
+### Phase 4 (stretch) — Agent registration at scale — **first slice DONE 2026-11-01**
 Directly answers Scott's ACAMP ask: "how do you issue credentials to all these agents, and how should agent config in the hub look?" See research doc, ACAMP section.
+
+**Done:** agent credentials moved out of the hub entirely. `lldap` container = directory of agent service accounts; hub `conf/global.xml` `shibboleth.sp.AgentValidators` = internal + `LDAPCredentialValidator` (directAuthenticator, `uid=%s,ou=people,dc=localtest`); `agents.xml` bean carries **no secret**. `gen-agent-secret.sh <uid>` sets the LDAP password and writes `agent.pwd`; agent recreated with `--no-deps`; hub `StartedAt` unchanged → rotation never touches the hub. Old password → `InvalidCredentials`.
+
+**Found (feedback for the SP4 team, hub 0.0.3-20261101):**
+1. Documented `<ref bean="shibboleth.sp.AgentSecretValidator"/>` / `<bean parent="shibboleth.sp.LDAPValidator"/>` in `global.xml` fails: `NoSuchBeanDefinitionException` — those beans live in the SP flow context, invisible to the root context. Workaround: declare validators by class in `global.xml` (see `hub/entrypoint.sh`).
+2. Plugin's `shibboleth.sp.LDAPAuthenticationFactory` lacks `autoReconnect`/`reconnectTimeout` (and `startTLSTimeout`) that IdP 5.2.3's `LDAPAuthenticationFactoryBean` requires → "Reconnect timeout cannot be null" even if it were reachable.
+3. **`p:usernames` cannot work with external validators**: `ValidateAgentCredentials.buildAuthenticationResult` requires `UsernamePrincipal(agent.getId())` in the Subject; only the internal validator produces that. With LDAP the presented username *must equal the agent id* — the identity/credential decoupling described at ACAMP isn't wired through yet. Workaround used: `p:id` = LDAP `uid` = `agent.ini agentID` = `sp4-agent`.
+4. Agent has no separate username setting; `agentID` is the basic-auth username (confirmed in RemotingSettings). Any decoupling must be hub-side.
+
+**Open:** midPoint (image already local) as the IGA source provisioning the lldap accounts; htpasswd validator as the "no directory" option; generating `agents.xml` from the directory.
 
 - Baseline: document what a hub operator does per agent today (bean in `agents.xml`, secret, IP range, issuer, OP client registration).
 - **Agents as service accounts in the directory.** Hub validates agent basic-auth against LDAP via a custom `shibboleth.sp.AgentValidators` entry in `conf/global.xml`; `agents.xml` carries only `p:id`, `p:usernames`, `p:allowedAddressRanges`, `p:issuer` — no secrets. Exploits the agentID↔credential decoupling Scott described.
