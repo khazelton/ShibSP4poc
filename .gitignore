@@ -25,3 +25,6 @@ __pycache__/
 deploy/.env
 deploy/app/secrets/
 deploy/agent/conf/shibboleth-sp/agent.pwd
+
+# archify visual-check evidence (regenerable)
+docs/diagrams/*.visual-check.*
