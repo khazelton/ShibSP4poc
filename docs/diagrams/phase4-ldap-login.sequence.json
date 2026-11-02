@@ -4,7 +4,7 @@
   "meta": {
     "title": "SP4 PoC — Phase 4 login with LDAP-validated agent",
     "output": "docs/diagrams/phase4-ldap-login.html",
-    "viewBox": [1080, 1040],
+    "viewBox": [1080, 1060],
     "quality_profile": "showcase",
     "column_fit": "spread",
     "views": [
@@ -34,7 +34,7 @@
     { "id": "m03", "from": "hub",     "to": "ldap",   "y": 252, "label": "bind uid=sp4-agent,ou=people,dc=localtest", "variant": "security" },
     { "id": "m04", "from": "ldap",    "to": "hub",    "y": 288, "label": "bind OK → spagent-ldap succeeded", "variant": "return" },
     { "id": "m05", "from": "hub",     "to": "agent",  "y": 324, "label": "authorize URL + sealed state (DDF, HTTP 200)", "variant": "return" },
-    { "id": "m06", "from": "agent",   "to": "browser","y": 384, "label": "302 → /o/oauth2/v2/auth?scope=openid profile email, state, nonce", "variant": "return" },
+    { "id": "m06", "from": "agent",   "to": "browser","y": 384, "label": "302 → Google authorize (openid profile email, state, nonce)", "variant": "return" },
     { "id": "m07", "from": "browser", "to": "google", "y": 420, "label": "login / silent SSO", "variant": "emphasis" },
     { "id": "m08", "from": "google",  "to": "browser","y": 456, "label": "302 → https://localhost/Shibboleth.sso/Validate?code&state", "variant": "return" },
     { "id": "m09", "from": "browser", "to": "agent",  "y": 510, "label": "GET /Shibboleth.sso/Validate?code&state", "variant": "emphasis" },
