@@ -63,4 +63,4 @@ Browse to `https://localhost/secure/` (accept the self-signed cert) → Google l
 
 - `mod_shib4.so` path in `agent/conf/shib4-poc.conf` — check `rpm -ql shibboleth-sp | grep mod_shib4`.
 - Attribute env-var names (`mail`, `displayName`, …) depend on the hub's `oidc-claim-rules.xml`; adjust the `RequestHeader set` lines after seeing `/Shibboleth.sso/Session`.
-- Snapshot tarball names in `hub/Dockerfile` ARGs go stale daily; refresh the URLs if the build 404s.
+- Hub plugins are nightly snapshots resolved at build time (newest signed tarball). Before rebuilding, run `./check-hub-nightly.sh [image]`: it diffs the newest nightly's jars against the image by per-entry CRC. Exit 0 means no code change, so skip the rebuild; exit 1 means rebuild with `docker compose build --no-cache hub`, after tagging the current image (e.g. `docker tag sp4-hub:dev sp4-hub:$(date +%Y%m%d)`). Entries behind the defects reported to dev@ are flagged `<-- watched`.

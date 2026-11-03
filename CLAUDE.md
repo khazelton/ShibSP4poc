@@ -24,6 +24,7 @@ cd deploy
 docker compose up -d                     # normal start; images already built
 docker compose down                      # stop; named volumes survive
 docker compose build hub && docker compose up -d hub            # after hub/ changes
+./check-hub-nightly.sh                   # newer hub snapshot with real code changes? exit 1 = rebuild with --no-cache
 docker compose build app && docker compose up -d --force-recreate app   # after Java/JSP changes
 docker compose up -d --no-deps --force-recreate agent           # after agent/conf/ changes (bind-mounted)
 curl -sk https://localhost/Shibboleth.sso/Status | grep -o '<RemotingService><OK/>'   # agent↔hub health
@@ -58,7 +59,7 @@ Hub config applied at container start by `deploy/hub/entrypoint.sh` (sp.properti
 - SP's LDAP factory bean lacks `startTLSTimeout`/`autoReconnect`/`reconnectTimeout`; the entrypoint passes the full IdP property set.
 - With an external validator the presented username must equal the agent `p:id`; `p:usernames` does not work. Hence id = uid = `agentID` = `sp4-agent`.
 - Stock IdP `attribute-filter.xml` drops `mail`; `deploy/hub/conf/attribute-filter.xml` replaces it.
-- Snapshot plugins are resolved at build time (newest tarball with a `.asc`); a rebuild can pick up a newer nightly and change the above.
+- Snapshot plugins are resolved at build time (newest tarball with a `.asc`); a rebuild can pick up a newer nightly and change the above. Nightly -31 (2026-11-02) had no SP changes; Scott has promised fixes for the validator/LDAP/`p:usernames` items.
 
 ## Conventions
 
