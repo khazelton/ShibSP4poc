@@ -12,7 +12,7 @@ For each arrow, this note gives the protocol, what the message carries, and what
 - a fresh `curl` of the login redirect;
 - the config in `deploy/`.
 
-Where the running system now differs from the labels, the arrow's entry says so. See also "What changed since the diagrams were drawn" at the end. Client IDs, `sub` values, authorization codes, the `hd` value and cookie values are redacted or left out.
+Where the running system differed from the original labels, the arrow's entry says so; the diagrams were relabelled the same day. See also "What changed since the diagrams were drawn" at the end. Client IDs, `sub` values, authorization codes, the `hd` value and cookie values are redacted or left out.
 
 ## Cast and channels
 
@@ -65,13 +65,13 @@ The agent never sees OIDC: it can't tell which protocol the hub speaks to the au
      - The LDAP validator is next (m03).
 
   If the hub had cached the agent's authentication (see the `cached_auth` note under m11), it would skip step 3. The hub log shows `No session record … full authentication will proceed` on every call, so in practice every remoting call is fully authenticated.
-- **Label drift:** the diagram says `basic sp4-agent`. Since -32 the agent presents `sa1-sp4-agent`, which the hub maps to agent id `sp4-agent.localtest`.
+- **Label drift (fixed in the relabelled diagram):** the original label said `basic sp4-agent`. Since -32 the agent presents `sa1-sp4-agent`, which the hub maps to agent id `sp4-agent.localtest`.
 
 ### m03 Hub → LDAP: `bind uid=…,ou=people,dc=localtest`
 
 - **Protocol:** LDAP v3 simple bind over plain TCP to `ldap://ldap:3890`.
 - **Contents:**
-  - Bind DN built from `sp.agent.authn.LDAP.dnFormat` = `uid=%s,ou=people,dc=localtest`, with the presented username substituted. Today that's `uid=sa1-sp4-agent,…`; the diagram shows `uid=sp4-agent,…`.
+  - Bind DN built from `sp.agent.authn.LDAP.dnFormat` = `uid=%s,ou=people,dc=localtest`, with the presented username substituted. Today that's `uid=sa1-sp4-agent,…`; the original diagram showed `uid=sp4-agent,…`.
   - Password: the basic-auth password the agent sent.
 - **Semantics:**
   - The IdP's stock `LDAPCredentialValidator`, configured as a `directAuthenticator`, is reused as an agent validator. A successful bind is the whole test: no search and no attributes.
@@ -173,7 +173,7 @@ The agent never sees OIDC: it can't tell which protocol the hub speaks to the au
   - It finds the state token in `state`, takes the matching cookie, and **unwraps the sealed state** (`Unwrapping sealed state data after recovery from token …`).
   - A missing, expired or tampered cookie, or a `state` that matches no cookie, ends the flow here.
   - The hub then checks that Google signalled success (`ValidateAuthenticationResponseResult`).
-- **Label drift:** as in m02, the username is now `sa1-sp4-agent`.
+- **Label drift (fixed):** as in m02, the username is now `sa1-sp4-agent`.
 
 ### m11 Hub → LDAP: bind (no cached auth)
 
@@ -223,7 +223,7 @@ The agent never sees OIDC: it can't tell which protocol the hub speaks to the au
 ### m16 Google → Hub: claims
 
 - **Protocol:** HTTP 200, JSON (unsigned; trusted because it came over TLS from the discovered endpoint, using our token).
-- **Contents:** `sub`, `email`, `email_verified`, `name`, `given_name`, `family_name`, `picture` and `hd` (the hosted domain for Workspace accounts). The diagram leaves out `email_verified`.
+- **Contents:** `sub`, `email`, `email_verified`, `name`, `given_name`, `family_name`, `picture` and `hd` (the hosted domain for Workspace accounts). The diagram leaves out `email_verified` here.
 - **Semantics:** the hub merges ID-token and UserInfo claims, then **transcodes** them into IdP attributes using the rules in `conf/attributes/oidc-claim-rules.xml` (`ExtractOIDCClaims`):
 
   | Claim | Attribute |
@@ -244,7 +244,7 @@ The agent never sees OIDC: it can't tell which protocol the hub speaks to the au
 
 - **Protocol:** HTTP 200 response to m10; DDF body.
 - **Contents:**
-  - The attributes that survive the hub's **attribute filter**. That is the host IdP's `AttributeFilterService` running `deploy/hub/conf/attribute-filter.xml`, which releases all seven attributes above to every Application. The diagram lists the five the app actually uses.
+  - The attributes that survive the hub's **attribute filter**. That is the host IdP's `AttributeFilterService` running `deploy/hub/conf/attribute-filter.xml`, which releases all seven attributes above to every Application. The original diagram listed only the five the app uses.
   - Session data: the hub logs `Storing id_token, access and refresh tokens in session data`.
   - The original target URL, recovered from the sealed state.
 - **Semantics:**
@@ -307,7 +307,7 @@ All of these return HTTP 200 on the remoting channel, with the outcome in the DD
 
 ## What changed since the diagrams were drawn
 
-The diagrams show the hub 0.0.3-20261101 setup. As of nightly -32 (2026-11-03):
+The diagrams were first drawn for the hub 0.0.3-20261101 setup. As of nightly -32 (2026-11-03):
 
 - **Username vs. agent id:**
   - The agent presents `agentID = sa1-sp4-agent`; the labels show `sp4-agent`.
@@ -320,8 +320,12 @@ The diagrams show the hub 0.0.3-20261101 setup. As of nightly -32 (2026-11-03):
   - Scott's loader (an LDIF-style flat file, expected around 2026-11-06) will probably replace this.
 - **Order of checks:** the agent is resolved from the username, and its address is checked, before any credential validator runs.
 
-If the diagrams are redrawn, the label changes are mechanical:
+**Diagrams relabelled 2026-11-03:**
 - m02, m10: `basic sa1-sp4-agent`;
-- m03: `bind uid=sa1-sp4-agent,…`;
-- m17: `+ email_verified, picture`;
-- page 2 card, third bullet: replace with "Hub resolves the agent from the presented username (`p:usernames`); the credential is checked by LDAP or htpasswd".
+- m03, m11: `bind uid=sa1-sp4-agent…`;
+- m05, m06, m09: show the sealed-state cookie;
+- m17: lists all seven attributes;
+- both titles: marked "hub 0.0.3-32";
+- the page 1 card and the page 2 card's third bullet: describe username-based agent resolution and the internal → LDAP → htpasswd chain.
+
+The per-arrow notes above still mention the old labels, so they read correctly against either version.

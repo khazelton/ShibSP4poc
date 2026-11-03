@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "SP4 PoC — Phase 4 login, page 2 of 2: code exchange, claims and the protected request",
+    "title": "SP4 PoC — Phase 4 login, page 2 of 2: code exchange, claims and the protected request (hub 0.0.3-32)",
     "output": "docs/diagrams/phase4-ldap-login-2of2.html",
     "viewBox": [1340, 720],
     "quality_profile": "showcase",
@@ -21,15 +21,15 @@
     { "from": 476, "to": 598, "label": "Protected request" }
   ],
   "messages": [
-    { "id": "m09", "from": "browser", "to": "agent",  "y": 180, "label": "GET /Shibboleth.sso/Validate?code&state", "variant": "emphasis" },
-    { "id": "m10", "from": "agent",   "to": "hub",    "y": 214, "label": "POST sp/token-consumer — basic sp4-agent", "variant": "security" },
-    { "id": "m11", "from": "hub",     "to": "ldap",   "y": 248, "label": "bind uid=sp4-agent (no cached auth)", "variant": "security" },
+    { "id": "m09", "from": "browser", "to": "agent",  "y": 180, "label": "GET /Shibboleth.sso/Validate?code&state + state cookie", "variant": "emphasis" },
+    { "id": "m10", "from": "agent",   "to": "hub",    "y": 214, "label": "POST sp/token-consumer — basic sa1-sp4-agent", "variant": "security" },
+    { "id": "m11", "from": "hub",     "to": "ldap",   "y": 248, "label": "bind uid=sa1-sp4-agent (no cached auth)", "variant": "security" },
     { "id": "m12", "from": "ldap",    "to": "hub",    "y": 282, "label": "bind OK", "variant": "return" },
     { "id": "m13", "from": "hub",     "to": "google", "y": 316, "label": "POST /token — code, client_secret_basic", "variant": "emphasis" },
     { "id": "m14", "from": "google",  "to": "hub",    "y": 350, "label": "id_token + access_token (RS256 via JWKS)", "variant": "return" },
     { "id": "m15", "from": "hub",     "to": "google", "y": 384, "label": "GET /v1/userinfo — Bearer access_token", "variant": "default" },
     { "id": "m16", "from": "google",  "to": "hub",    "y": 418, "label": "claims: sub, email, name, given_name, family_name, picture, hd", "variant": "return" },
-    { "id": "m17", "from": "hub",     "to": "agent",  "y": 452, "label": "attributes sub, mail, displayName, givenName, sn + session data (after filter)", "variant": "return" },
+    { "id": "m17", "from": "hub",     "to": "agent",  "y": 452, "label": "attributes sub, mail, displayName, givenName, sn, email_verified, picture + session data", "variant": "return" },
     { "id": "m18", "from": "agent",   "to": "browser","y": 510, "label": "302 → /secure/ + __Host-shibsession cookie", "variant": "return" },
     { "id": "m19", "from": "browser", "to": "agent",  "y": 544, "label": "GET /secure/ (session cookie)", "variant": "emphasis" },
     { "id": "m20", "from": "agent",   "to": "app",    "y": 578, "label": "ProxyPass → :8081 with X-Shib-Sub/-Mail/-DisplayName/-GivenName/-Sn", "variant": "emphasis" },
@@ -44,6 +44,6 @@
     { "participant": "app",    "from": 572, "to": 618, "type": "frontend" }
   ],
   "cards": [
-    { "dot": "cyan", "title": "Hub does the OIDC work, app sees headers", "items": ["Code exchange, JWKS validation, UserInfo, claim transcoding (email→mail, name→displayName), then the hub's own filter policy (stock IdP filter dropped mail)", "Agent exports attributes as env vars; Apache turns them into X-Shib-* headers for the proxy hop; Jetty is reachable from the agent only", "Hub 0.0.3: presented username must equal the agent id (p:usernames not honoured by external validators)"] }
+    { "dot": "cyan", "title": "Hub does the OIDC work, app sees headers", "items": ["Code exchange, JWKS validation, UserInfo, claim transcoding (email→mail, name→displayName), then the hub's own filter policy (stock IdP filter dropped mail)", "Agent exports attributes as env vars; Apache turns them into X-Shib-* headers for the proxy hop; Jetty is reachable from the agent only", "Hub resolves the agent from the presented username (p:usernames); the credential is checked by LDAP or htpasswd"] }
   ]
 }
