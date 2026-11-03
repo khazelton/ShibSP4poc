@@ -58,6 +58,7 @@ services:
       - hub-logs:/opt/shibboleth-idp/logs
       - hub-tls:/tls-export      # entrypoint writes hub.crt here for the agent
       - ./hub/htpasswd:/opt/shibboleth-idp/credentials/sp/htpasswd:ro   # directory mount (inode-safe)
+      - ./hub/agents/generated:/opt/shibboleth-idp/conf/sp/generated:ro  # agent beans from ./gen-agents-xml.py
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:8080/idp/status"]
       interval: 15s

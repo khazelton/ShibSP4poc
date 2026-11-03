@@ -26,22 +26,16 @@ username, or list several under p:usernames, without changing the agentID.
     <!-- ============ Agents and their Applications ============ -->
 
     <!--
-    Phase 4: agent identity decoupled from its credentials.
-      p:id        the agent's identity at the hub (logs, audit, Application lookup).
-      p:usernames LDAP service accounts allowed to authenticate as this agent. The agent
-                  presents one of them as agent.ini agentID; LDAP validates the password
-                  (conf/global.xml shibboleth.sp.AgentValidators). Two accounts let a
-                  credential rotate, or overlap, without touching this file or the hub.
-                  sa1/sa2 live in LDAP; sa3 lives only in the htpasswd file (Phase 4b,
-                  the no-directory option). The validator chain doesn't care which.
-    No secrets here. Needs hub nightly 0.0.3-32 or later: before that, external validators
-    required the username to equal p:id (defect #4 in docs/dev-list-writeup.md).
-    Phase 2 in-config form, for reference: p:credentials="#{ {null : '%{poc.agent.secret}'} }"
+    Agent beans are no longer defined here. They are generated from hub/agents/agents.csv
+    by deploy/gen-agents-xml.py into conf/sp/generated/agents-generated.xml, which the
+    AgentResolverService loads alongside this file (shibboleth.sp.AgentResolverResources,
+    hub/entrypoint.sh). This file keeps only the one-time configuration.
+
+    Identity vs credentials (Phase 4, needs hub nightly 0.0.3-32 or later): each agent's
+    p:usernames lists the service accounts that may authenticate as it. sa1/sa2 live in
+    LDAP and sa3 lives in the htpasswd file. Phase 2 in-config secret form, for reference:
+    p:credentials="#{ {null : '%{poc.agent.secret}'} }"
     -->
-    <bean p:id="sp4-agent.localtest" parent="shibboleth.sp.Agent"
-          p:usernames="#{ {'sa1-sp4-agent', 'sa2-sp4-agent', 'sa3-sp4-agent'} }"
-          p:authenticationMethod="basic"
-          p:allowedAddressRanges="172.30.0.20/32" />
 
     <!-- ============ RelyingParty Overrides ============ -->
 

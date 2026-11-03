@@ -151,7 +151,13 @@ Directly answers Scott's ACAMP ask: "how do you issue credentials to all these a
 - Wrong password gives `InvalidCredentials`.
 - Hashes: `$apr1$`, `{SHA}`, crypt (`$5$`/`$6$`) via commons-codec; **no bcrypt** (`htpasswd -B`), worth a doc line upstream.
 - Cost of mixing sources: an htpasswd-only user pays one failed LDAP bind per uncached authentication, and logs an INFO failure from each earlier validator. Order the chain by where most agents live.
-- Relevance to Scott's loader-bean idea: the htpasswd file already is the "day-to-day" flat data (username plus credential); only the username→agent mapping still lives in agents.xml. To check quickly, diff the jar contents rather than logging in.
+- Relevance to Scott's loader-bean idea: the htpasswd file already is the "day-to-day" flat data (username plus credential); only the username→agent mapping still lives in agents.xml.
+
+**Done (2026-11-03): agents.xml generated from a flat list** (stand-in for Scott's loader bean). `deploy/gen-agents-xml.py` turns `hub/agents/agents.csv` (id, group, allowed ranges, usernames, owner) into Agent beans through per-group templates (`hub/agents/templates/<group>.xml`), writing `hub/agents/generated/agents-generated.xml`. The hub loads it through `shibboleth.sp.AgentResolverResources` (static `agents.xml` + `conditional:` generated file; defining the bean overrides the plugin's default list) from a bind mount, so changes need only a reload.
+- Agent loaded from the generated file; `p:allowedAddressRanges` accepts a SpEL list. `sa1` login is OK.
+- Adding a row and running `--reload` gave `Initializing with Agents: [sp4-agent.localtest, app2.localtest]` with the hub's `StartedAt` unchanged. Removing it restored one agent.
+- Validation catches an unknown group, a bad CIDR, and a username already owned by another agent (exit 2, output untouched). `--check` exits 1 when stale.
+- What this says about a real loader: it needs only id, address ranges, usernames and a group/profile reference per agent, plus an owner for governance. Owner is carried only as a comment here, and the hub has no field for it. Uniqueness of usernames across agents is a constraint the loader (or the hub) must enforce. To check quickly, diff the jar contents rather than logging in.
 
 **Open:** midPoint (image already local) as the IGA source provisioning the lldap accounts; htpasswd validator as the "no directory" option; generating `agents.xml` from the directory.
 

@@ -72,6 +72,23 @@ if ! grep -q 'shibboleth.sp.AgentValidators' conf/global.xml; then
   perl -0pi -e 'BEGIN{local $/; open F,"</tmp/validators.xml"; $r=<F>; close F} s|</beans>\s*$|$r|' conf/global.xml
 fi
 
+# Agent beans generated from hub/agents/agents.csv (deploy/gen-agents-xml.py) live in a
+# bind-mounted directory. Defining shibboleth.sp.AgentResolverResources replaces the plugin's
+# default resource list (postconfig.xml), so list the static agents.xml too. "conditional:"
+# tolerates a missing file. Changes are picked up on reload, without a rebuild.
+if ! grep -q 'shibboleth.sp.AgentResolverResources' conf/global.xml; then
+  cat > /tmp/agent-resources.xml <<'XML'
+    <!-- SP hub: agent definitions = static conf/sp/agents.xml + generated file. See hub/entrypoint.sh. -->
+    <util:list id="shibboleth.sp.AgentResolverResources">
+        <value>%{idp.home}/conf/sp/agents.xml</value>
+        <value>conditional:%{idp.home}/conf/sp/generated/agents-generated.xml</value>
+    </util:list>
+
+</beans>
+XML
+  perl -0pi -e 'BEGIN{local $/; open F,"</tmp/agent-resources.xml"; $r=<F>; close F} s|</beans>\s*$|$r|' conf/global.xml
+fi
+
 # Export the hub's TLS cert (made by the IdP installer for hub.localtest) for agents.
 if [ -d /tls-export ]; then
   openssl pkcs12 -in credentials/idp-userfacing.p12 -passin pass:changeit -nokeys -clcerts 2>/dev/null \

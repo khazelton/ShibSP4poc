@@ -24,6 +24,7 @@ cd deploy
 docker compose up -d                     # normal start; images already built
 docker compose down                      # stop; named volumes survive
 docker compose build hub && docker compose up -d hub            # after hub/ changes
+./gen-agents-xml.py --reload             # after editing hub/agents/agents.csv (agent list); validates, regenerates, hot-reloads
 ./check-hub-nightly.sh                   # newer hub snapshot with real code changes? exit 1 = rebuild with --no-cache
 docker compose build app && docker compose up -d --force-recreate app   # after Java/JSP changes
 docker compose up -d --no-deps --force-recreate agent           # after agent/conf/ changes (bind-mounted)
@@ -52,7 +53,7 @@ Never commit or print secrets; redact client IDs, `sub` values and emails when q
 
 Browser → agent (`mod_shib4`, `/secure` requires a session) → agent calls hub `sp/session-initiator` over TLS with basic auth (`agentID=sa1-sp4-agent`, one of the `p:usernames` of hub agent `sp4-agent.localtest`; hub validates via the chain internal → `shibboleth.sp.LDAPValidator` (lldap) → `shibboleth.sp.HTPasswdValidator` (flat file)) → hub returns Google authorize URL → browser logs in at Google → redirect URI is the agent's `/Shibboleth.sso/Validate` → agent calls hub `sp/token-consumer` → hub does code exchange, JWKS validation, UserInfo, claim transcoding and attribute filtering → attributes land in the agent session → Apache exports them as `X-Shib-*` headers and proxies to Jetty. Separately, the app signs a JWT-bearer assertion with the service-account key, gets a Google ID token with `aud=API_AUDIENCE`, and the test API at `/api/echo` validates it against Google's JWKS. Diagrams: `docs/diagrams/phase4-ldap-login*.html` (archify; `.sequence.json` is the source).
 
-Hub config applied at container start by `deploy/hub/entrypoint.sh` (sp.properties, oidc.properties, LDAP validator beans in `global.xml`). Static hub files in `deploy/hub/conf/`. Agent↔hub responses are always HTTP 200; the outcome is `event 1 <Name>` in the DDF body.
+Hub config applied at container start by `deploy/hub/entrypoint.sh` (sp.properties, oidc.properties, LDAP validator beans in `global.xml`). Static hub files in `deploy/hub/conf/`. Agent beans are generated from `deploy/hub/agents/agents.csv` into a bind-mounted file listed in `shibboleth.sp.AgentResolverResources`, so don't add agents to `conf/agents.xml`. Agent↔hub responses are always HTTP 200; the outcome is `event 1 <Name>` in the DDF body.
 
 ## Hub 0.0.3 quirks that shape the config (details in `docs/dev-list-writeup.md`)
 
