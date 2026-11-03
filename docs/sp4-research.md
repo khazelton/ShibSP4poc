@@ -45,6 +45,7 @@ idp/bin/plugin.sh --noCheck --truststore SHIBBOLETH_SNAPSHOT_PGP_KEYS -i <sp-oid
 Hub config files (core plugin):
 - `conf/sp/sp.properties` — globals: `sp.issuer`, `sp.defaultAuthority`, `sp.agent.authn.method` (`basic`), `sp.agent.authn.allowedAddressRanges` (CIDR list, default loopback), `sp.agent.authn.cached`, `sp.agent.authn.cacheDuration`.
 - `conf/sp/agents.xml` — Agent beans, Applications, RP overrides.
+  Reloadable: `shibboleth.sp.AgentResolverService` (ReloadableService) polls every `sp.service.agents.checkInterval` (PT5M as shipped); on demand via `bin/reload-service.sh -u <idp-url> -id shibboleth.sp.AgentResolverService` (verified on 0.0.3-31).
 - `conf/sp/credentials.xml` — keys/secrets.
 - `conf/global.xml` — custom validators under reserved id `shibboleth.sp.AgentValidators`.
 
