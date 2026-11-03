@@ -159,7 +159,21 @@ Directly answers Scott's ACAMP ask: "how do you issue credentials to all these a
 - Validation catches an unknown group, a bad CIDR, and a username already owned by another agent (exit 2, output untouched). `--check` exits 1 when stale.
 - What this says about a real loader: it needs only id, address ranges, usernames and a group/profile reference per agent, plus an owner for governance. Owner is carried only as a comment here, and the hub has no field for it. Uniqueness of usernames across agents is a constraint the loader (or the hub) must enforce. To check quickly, diff the jar contents rather than logging in.
 
-**Open:** midPoint (image already local) as the IGA source provisioning the lldap accounts; htpasswd validator as the "no directory" option; generating `agents.xml` from the directory.
+**Scott's third reply (2026-11-03, to the -32 follow-up; full text in `docs/followup-to-scott-2026-11-03.md`):**
+
+| Item | Disposition |
+|------|-------------|
+| `sp.authn.LDAP.*` prefix on three factory properties | He'll fix it when he copies the properties into the commented `sp.properties`. |
+| Internal validator logs INFO "failed" when only `p:usernames` is set | Bug; the internal validator shouldn't log when there is no local secret. He'll fix it. |
+| `sp.properties` trust paths point at missing files | Intended, as in the IdP: there's no real default. **`jvmTrust` isn't meant for real use.** Our PoC uses it only because LDAP is plain `ldap://` without StartTLS, so no trust is exercised. |
+| No bcrypt in htpasswd | commons-codec lacks it. He asked whether IdP docs claim bcrypt support. Open: check the IdP HTPasswd doc page before pressing further. |
+| Loader fields (id, ranges, usernames, group, owner) | Matches his external agent loader work. The hub doesn't need owner. Real loaders also need **issuer** and possibly an **authority override**. |
+| Username uniqueness | The bean loader now ignores duplicates (bug fixed that day). External sources must enforce uniqueness themselves; it's already documented. |
+| Per-agent metadata | "That's fair." Leaning towards an **LDIF-style flat file, one line per field**, because many fields are lists. Sketch expected by about 2026-11-06; only file loading is left to write. |
+
+**Consequences:** when the loader lands in a nightly, retarget `gen-agents-xml.py` (or replace it) with the LDIF-style format, and add `issuer`/authority columns. Until then the CSV stand-in stays. Expect the next nightly to carry the prefix and logging fixes; `check-hub-nightly.sh` will flag it.
+
+**Open:** midPoint (image already local) as the IGA source provisioning the lldap accounts and the flat agent list; the switch to Scott's loader format when it ships; checking the IdP docs for a bcrypt claim. (The htpasswd validator and the generated agent list are done; see above.)
 
 - Baseline: document what a hub operator does per agent today (bean in `agents.xml`, secret, IP range, issuer, OP client registration).
 - **Agents as service accounts in the directory.** Hub validates agent basic-auth against LDAP via a custom `shibboleth.sp.AgentValidators` entry in `conf/global.xml`; `agents.xml` carries only `p:id`, `p:usernames`, `p:allowedAddressRanges`, `p:issuer` — no secrets. Exploits the agentID↔credential decoupling Scott described.

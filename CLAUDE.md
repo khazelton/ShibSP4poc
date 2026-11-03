@@ -59,7 +59,7 @@ Hub config applied at container start by `deploy/hub/entrypoint.sh` (sp.properti
 
 - Fixed in nightly 0.0.3-32 (2026-11-03), workarounds removed: validator beans are now visible from root context (documented `global.xml` form used), the LDAP factory has full properties, and `p:usernames` works with external validators. Rolling back to an older image (`sp4-hub:20261102` = -31) would need the old workarounds from git history (before the -32 commit).
 - `agentID` *is* the basic-auth username (by design, per Scott). The hub's `p:id` is the agent's identity for logs and audit only.
-- SP LDAP properties no longer chain to `idp.authn.LDAP.*` (as of -32); set every `sp.agent.authn.LDAP.*` explicitly. The factory's `startTLSTimeout`/`autoReconnect`/`reconnectTimeout` read `sp.authn.LDAP.*` (inconsistent prefix, reported).
+- SP LDAP properties no longer chain to `idp.authn.LDAP.*` (as of -32); set every `sp.agent.authn.LDAP.*` explicitly. The factory's `startTLSTimeout`/`autoReconnect`/`reconnectTimeout` read `sp.authn.LDAP.*` (inconsistent prefix; Scott will fix). `sslConfig=jvmTrust` is PoC-only (plain `ldap://`); Scott says it isn't meant for real use.
 - Stock IdP `attribute-filter.xml` drops `mail`; `deploy/hub/conf/attribute-filter.xml` replaces it.
 - Snapshot plugins are resolved at build time (newest tarball with a `.asc`); a rebuild can pick up a newer nightly and change the above. Run `./check-hub-nightly.sh` first.
 
