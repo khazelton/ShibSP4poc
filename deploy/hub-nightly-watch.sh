@@ -6,6 +6,7 @@
 #   ./hub-nightly-watch.sh uninstall   unload + remove it
 #   ./hub-nightly-watch.sh run         one check now (what launchd calls)
 #   ./hub-nightly-watch.sh status      launchd state + tail of the log
+#   ./hub-nightly-watch.sh test        send a test notification from the launchd job
 #
 # Notifies once per distinct change set (state in $STATE_DIR/last-notified), so an
 # unrebuilt change doesn't nag every day; after you rebuild, check exits 0 and the state
@@ -24,6 +25,12 @@ notify() {
 
 run_check() {
   mkdir -p "$STATE_DIR"
+  # one-shot delivery test from launchd's context: `./hub-nightly-watch.sh test`
+  if [ -f "$STATE_DIR/notify-test" ]; then
+    rm -f "$STATE_DIR/notify-test"
+    notify "test" "Notification from the launchd job works"
+    echo "=== $(date '+%F %T') notify-test sent" >> "$LOG"
+  fi
   local out rc
   out=$("$HERE/check-hub-nightly.sh" "${HUB_IMAGE:-sp4-hub:dev}" 2>&1); rc=$?
   { echo "=== $(date '+%F %T') exit=$rc"; echo "$out"; } >> "$LOG"
@@ -84,5 +91,7 @@ case "${1:-}" in
   uninstall) uninstall ;;
   run) run_check ;;
   status) status ;;
+  test) mkdir -p "$STATE_DIR" && touch "$STATE_DIR/notify-test" \
+          && launchctl kickstart "gui/$(id -u)/$LABEL" && echo "kicked $LABEL; watch for a test notification" ;;
   *) sed -n '2,13p' "$0"; exit 2 ;;
 esac
