@@ -48,9 +48,9 @@ Browse to `https://localhost/secure/` (accept the self-signed cert) → Google l
 ## Phase 4 (applied) — agent credentials in LDAP, not in the hub
 
 - `ldap` service (lldap; UI http://127.0.0.1:17170, admin / `LDAP_ADMIN_PASSWORD` or `poc-admin-password`). Accounts from `ldap/bootstrap/user-configs/*.json` via `./ldap-seed.sh`.
-- hub: `global.xml` gets `shibboleth.sp.AgentValidators` = internal + `LDAPCredentialValidator` (`hub/entrypoint.sh`, class-based because the documented `ref`s are not visible from the root context). `agents.xml` agent `sp4-agent` has no secret.
-- agent: `agentID = sp4-agent` (must equal the hub-side id on hub 0.0.3 — see `docs/poc-outline.md` Phase 4 findings), `agent.pwd` from `./gen-agent-secret.sh sp4-agent`.
-- Rotate: `./gen-agent-secret.sh sp4-agent && docker compose up -d --no-deps --force-recreate agent`. Hub untouched.
+- hub: `global.xml` gets `shibboleth.sp.AgentValidators` = `shibboleth.sp.AgentSecretValidator` + `shibboleth.sp.LDAPValidator`, the documented form (`hub/entrypoint.sh`; needs nightly 0.0.3-32 or later). In `agents.xml`, agent `sp4-agent.localtest` lists `p:usernames` `sa1-sp4-agent` and `sa2-sp4-agent`, and has no secret.
+- agent: `agentID = sa1-sp4-agent` (one of the hub agent's usernames), `agent.pwd` from `./gen-agent-secret.sh sa1-sp4-agent`.
+- Rotate to the other account: `./gen-agent-secret.sh sa2-sp4-agent`, set `agentID = sa2-sp4-agent` in `agent/conf/shibboleth-sp/agent.ini`, then `docker compose up -d --no-deps --force-recreate agent`. The hub is untouched. The LDAP account `sp4-agent` remains as a negative test: it isn't in `p:usernames`, so the hub rejects it with `UnknownUsername`.
 
 ## Phase 3b (applied)
 

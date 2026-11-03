@@ -1,1 +1,1 @@
-{"id": "sp4-agent", "email": "sp4-agent@localtest", "displayName": "Service account for agent sp4-agent (uid must equal the hub's agent id on hub 0.0.3)"}
+{"id": "sp4-agent", "email": "sp4-agent@localtest", "displayName": "Negative test: valid account, not in p:usernames of any hub agent (hub answers UnknownUsername)"}

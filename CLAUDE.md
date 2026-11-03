@@ -41,25 +41,25 @@ Build is Docker-only: no local Maven/Java toolchain is expected. `app/` is built
 
 - `deploy/.env` — `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (template `.env.example`).
 - `deploy/app/secrets/sa.json` — Google service-account key for Phase 3b.
-- `deploy/agent/conf/shibboleth-sp/agent.pwd` — agent secret; written by `./gen-agent-secret.sh sp4-agent`, which also sets the lldap password.
+- `deploy/agent/conf/shibboleth-sp/agent.pwd` — agent secret; written by `./gen-agent-secret.sh sa1-sp4-agent`, which also sets the lldap password.
 
-If volumes were wiped (`down -v`): `./ldap-seed.sh && ./gen-agent-secret.sh sp4-agent && docker compose up -d --no-deps --force-recreate agent`.
+If volumes were wiped (`down -v`): `./ldap-seed.sh && ./gen-agent-secret.sh sa1-sp4-agent && docker compose up -d --no-deps --force-recreate agent`.
 
 Never commit or print secrets; redact client IDs, `sub` values and emails when quoting logs.
 
 ## Architecture in one paragraph
 
-Browser → agent (`mod_shib4`, `/secure` requires a session) → agent calls hub `sp/session-initiator` over TLS with basic auth (`agentID=sp4-agent`; hub validates against lldap via `LDAPCredentialValidator`) → hub returns Google authorize URL → browser logs in at Google → redirect URI is the agent's `/Shibboleth.sso/Validate` → agent calls hub `sp/token-consumer` → hub does code exchange, JWKS validation, UserInfo, claim transcoding and attribute filtering → attributes land in the agent session → Apache exports them as `X-Shib-*` headers and proxies to Jetty. Separately, the app signs a JWT-bearer assertion with the service-account key, gets a Google ID token with `aud=API_AUDIENCE`, and the test API at `/api/echo` validates it against Google's JWKS. Diagrams: `docs/diagrams/phase4-ldap-login*.html` (archify; `.sequence.json` is the source).
+Browser → agent (`mod_shib4`, `/secure` requires a session) → agent calls hub `sp/session-initiator` over TLS with basic auth (`agentID=sa1-sp4-agent`, one of the `p:usernames` of hub agent `sp4-agent.localtest`; hub validates against lldap via `shibboleth.sp.LDAPValidator`) → hub returns Google authorize URL → browser logs in at Google → redirect URI is the agent's `/Shibboleth.sso/Validate` → agent calls hub `sp/token-consumer` → hub does code exchange, JWKS validation, UserInfo, claim transcoding and attribute filtering → attributes land in the agent session → Apache exports them as `X-Shib-*` headers and proxies to Jetty. Separately, the app signs a JWT-bearer assertion with the service-account key, gets a Google ID token with `aud=API_AUDIENCE`, and the test API at `/api/echo` validates it against Google's JWKS. Diagrams: `docs/diagrams/phase4-ldap-login*.html` (archify; `.sequence.json` is the source).
 
 Hub config applied at container start by `deploy/hub/entrypoint.sh` (sp.properties, oidc.properties, LDAP validator beans in `global.xml`). Static hub files in `deploy/hub/conf/`. Agent↔hub responses are always HTTP 200; the outcome is `event 1 <Name>` in the DDF body.
 
 ## Hub 0.0.3 quirks that shape the config (details in `docs/dev-list-writeup.md`)
 
-- Documented `shibboleth.sp.AgentSecretValidator` / `shibboleth.sp.LDAPValidator` refs are flow-scoped; validators are declared by class in `global.xml`.
-- SP's LDAP factory bean lacks `startTLSTimeout`/`autoReconnect`/`reconnectTimeout`; the entrypoint passes the full IdP property set.
-- With an external validator the presented username must equal the agent `p:id`; `p:usernames` does not work. Hence id = uid = `agentID` = `sp4-agent`.
+- Fixed in nightly 0.0.3-32 (2026-11-03), workarounds removed: validator beans are now visible from root context (documented `global.xml` form used), the LDAP factory has full properties, and `p:usernames` works with external validators. Rolling back to an older image (`sp4-hub:20261102` = -31) would need the old workarounds from git history (before the -32 commit).
+- `agentID` *is* the basic-auth username (by design, per Scott). The hub's `p:id` is the agent's identity for logs and audit only.
+- SP LDAP properties no longer chain to `idp.authn.LDAP.*` (as of -32); set every `sp.agent.authn.LDAP.*` explicitly. The factory's `startTLSTimeout`/`autoReconnect`/`reconnectTimeout` read `sp.authn.LDAP.*` (inconsistent prefix, reported).
 - Stock IdP `attribute-filter.xml` drops `mail`; `deploy/hub/conf/attribute-filter.xml` replaces it.
-- Snapshot plugins are resolved at build time (newest tarball with a `.asc`); a rebuild can pick up a newer nightly and change the above. Nightly -31 (2026-11-02) had no SP changes; Scott has promised fixes for the validator/LDAP/`p:usernames` items.
+- Snapshot plugins are resolved at build time (newest tarball with a `.asc`); a rebuild can pick up a newer nightly and change the above. Run `./check-hub-nightly.sh` first.
 
 ## Conventions
 

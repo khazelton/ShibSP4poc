@@ -26,19 +26,18 @@ username, or list several under p:usernames, without changing the agentID.
     <!-- ============ Agents and their Applications ============ -->
 
     <!--
-    Phase 4: the agent's password lives in LDAP (conf/global.xml shibboleth.sp.AgentValidators
-    -> LDAPCredentialValidator), so rotation never touches this file or the hub process.
-    No p:credentials here.
-
-    Intended form (docs): identity decoupled from credentials via p:usernames, e.g.
-        p:id="sp4-agent.localtest" p:usernames="#{{ 'sa1-sp4-agent', 'sa2-sp4-agent' }}"
-    Does NOT work on hub 0.0.3: ValidateAgentCredentials.buildAuthenticationResult requires
-    a UsernamePrincipal equal to the agent *id* in the Subject, which only the internal
-    validator produces. With an external validator the presented username must therefore
-    equal the agent id. Workaround: id == LDAP uid == agent.ini agentID == "sp4-agent".
+    Phase 4: agent identity decoupled from its credentials.
+      p:id        the agent's identity at the hub (logs, audit, Application lookup).
+      p:usernames LDAP service accounts allowed to authenticate as this agent. The agent
+                  presents one of them as agent.ini agentID; LDAP validates the password
+                  (conf/global.xml shibboleth.sp.AgentValidators). Two accounts let a
+                  credential rotate, or overlap, without touching this file or the hub.
+    No secrets here. Needs hub nightly 0.0.3-32 or later: before that, external validators
+    required the username to equal p:id (defect #4 in docs/dev-list-writeup.md).
     Phase 2 in-config form, for reference: p:credentials="#{ {null : '%{poc.agent.secret}'} }"
     -->
-    <bean p:id="sp4-agent" parent="shibboleth.sp.Agent"
+    <bean p:id="sp4-agent.localtest" parent="shibboleth.sp.Agent"
+          p:usernames="#{ {'sa1-sp4-agent', 'sa2-sp4-agent'} }"
           p:authenticationMethod="basic"
           p:allowedAddressRanges="172.30.0.20/32" />
 
