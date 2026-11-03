@@ -44,6 +44,10 @@ services:
       # credential changes nothing in the hub's config or environment.
       AGENT_LDAP_URL: ldap://ldap:3890
       AGENT_LDAP_DNFORMAT: uid=%s,ou=people,dc=localtest
+      # Phase 4b: flat-file credentials, the "no directory" option. Same agent, extra
+      # username sa3-sp4-agent that exists only in this file. Written by
+      # ./gen-agent-secret.sh --htpasswd <user>; the hub re-reads it when it changes.
+      AGENT_HTPASSWD: /opt/shibboleth-idp/credentials/sp/htpasswd/agents.htpasswd
     networks:
       poc:
         ipv4_address: 172.30.0.10
@@ -53,6 +57,7 @@ services:
     volumes:
       - hub-logs:/opt/shibboleth-idp/logs
       - hub-tls:/tls-export      # entrypoint writes hub.crt here for the agent
+      - ./hub/htpasswd:/opt/shibboleth-idp/credentials/sp/htpasswd:ro   # directory mount (inode-safe)
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:8080/idp/status"]
       interval: 15s

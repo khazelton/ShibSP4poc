@@ -32,12 +32,14 @@ username, or list several under p:usernames, without changing the agentID.
                   presents one of them as agent.ini agentID; LDAP validates the password
                   (conf/global.xml shibboleth.sp.AgentValidators). Two accounts let a
                   credential rotate, or overlap, without touching this file or the hub.
+                  sa1/sa2 live in LDAP; sa3 lives only in the htpasswd file (Phase 4b,
+                  the no-directory option). The validator chain doesn't care which.
     No secrets here. Needs hub nightly 0.0.3-32 or later: before that, external validators
     required the username to equal p:id (defect #4 in docs/dev-list-writeup.md).
     Phase 2 in-config form, for reference: p:credentials="#{ {null : '%{poc.agent.secret}'} }"
     -->
     <bean p:id="sp4-agent.localtest" parent="shibboleth.sp.Agent"
-          p:usernames="#{ {'sa1-sp4-agent', 'sa2-sp4-agent'} }"
+          p:usernames="#{ {'sa1-sp4-agent', 'sa2-sp4-agent', 'sa3-sp4-agent'} }"
           p:authenticationMethod="basic"
           p:allowedAddressRanges="172.30.0.20/32" />
 

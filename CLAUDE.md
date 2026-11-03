@@ -41,6 +41,7 @@ Build is Docker-only: no local Maven/Java toolchain is expected. `app/` is built
 
 - `deploy/.env` — `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (template `.env.example`).
 - `deploy/app/secrets/sa.json` — Google service-account key for Phase 3b.
+- `deploy/hub/htpasswd/agents.htpasswd` — flat-file agent credentials (`sa3-sp4-agent`), written by `./gen-agent-secret.sh --htpasswd sa3-sp4-agent`. Optional: if it's missing, the hub skips the htpasswd validator.
 - `deploy/agent/conf/shibboleth-sp/agent.pwd` — agent secret; written by `./gen-agent-secret.sh sa1-sp4-agent`, which also sets the lldap password.
 
 If volumes were wiped (`down -v`): `./ldap-seed.sh && ./gen-agent-secret.sh sa1-sp4-agent && docker compose up -d --no-deps --force-recreate agent`.
@@ -49,7 +50,7 @@ Never commit or print secrets; redact client IDs, `sub` values and emails when q
 
 ## Architecture in one paragraph
 
-Browser → agent (`mod_shib4`, `/secure` requires a session) → agent calls hub `sp/session-initiator` over TLS with basic auth (`agentID=sa1-sp4-agent`, one of the `p:usernames` of hub agent `sp4-agent.localtest`; hub validates against lldap via `shibboleth.sp.LDAPValidator`) → hub returns Google authorize URL → browser logs in at Google → redirect URI is the agent's `/Shibboleth.sso/Validate` → agent calls hub `sp/token-consumer` → hub does code exchange, JWKS validation, UserInfo, claim transcoding and attribute filtering → attributes land in the agent session → Apache exports them as `X-Shib-*` headers and proxies to Jetty. Separately, the app signs a JWT-bearer assertion with the service-account key, gets a Google ID token with `aud=API_AUDIENCE`, and the test API at `/api/echo` validates it against Google's JWKS. Diagrams: `docs/diagrams/phase4-ldap-login*.html` (archify; `.sequence.json` is the source).
+Browser → agent (`mod_shib4`, `/secure` requires a session) → agent calls hub `sp/session-initiator` over TLS with basic auth (`agentID=sa1-sp4-agent`, one of the `p:usernames` of hub agent `sp4-agent.localtest`; hub validates via the chain internal → `shibboleth.sp.LDAPValidator` (lldap) → `shibboleth.sp.HTPasswdValidator` (flat file)) → hub returns Google authorize URL → browser logs in at Google → redirect URI is the agent's `/Shibboleth.sso/Validate` → agent calls hub `sp/token-consumer` → hub does code exchange, JWKS validation, UserInfo, claim transcoding and attribute filtering → attributes land in the agent session → Apache exports them as `X-Shib-*` headers and proxies to Jetty. Separately, the app signs a JWT-bearer assertion with the service-account key, gets a Google ID token with `aud=API_AUDIENCE`, and the test API at `/api/echo` validates it against Google's JWKS. Diagrams: `docs/diagrams/phase4-ldap-login*.html` (archify; `.sequence.json` is the source).
 
 Hub config applied at container start by `deploy/hub/entrypoint.sh` (sp.properties, oidc.properties, LDAP validator beans in `global.xml`). Static hub files in `deploy/hub/conf/`. Agent↔hub responses are always HTTP 200; the outcome is `event 1 <Name>` in the DDF body.
 

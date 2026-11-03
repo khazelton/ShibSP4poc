@@ -44,21 +44,32 @@ if [ -n "${AGENT_LDAP_URL:-}" ]; then
   setprop "$SP" sp.agent.authn.LDAP.dnFormat      "${AGENT_LDAP_DNFORMAT:-uid=%s,ou=people,dc=localtest}"
   setprop "$SP" sp.agent.authn.LDAP.useStartTLS   "false"
   setprop "$SP" sp.agent.authn.LDAP.sslConfig     "jvmTrust"
-  # Documented form (SecuringAgentConnections). Needs hub nightly 0.0.3-32 or later: before that,
-  # these beans were flow-scoped and invisible here (NoSuchBeanDefinitionException), and the
-  # LDAP factory lacked startTLSTimeout/autoReconnect/reconnectTimeout (defects #2, #3).
-  if ! grep -q 'shibboleth.sp.AgentValidators' conf/global.xml; then
-    cat > /tmp/validators.xml <<'XML'
-    <!-- SP hub: agent credential validators (PoC Phase 4). See hub/entrypoint.sh. -->
-    <util:list id="shibboleth.sp.AgentValidators">
-        <ref bean="shibboleth.sp.AgentSecretValidator" />
-        <bean parent="shibboleth.sp.LDAPValidator" />
-    </util:list>
+fi
 
-</beans>
-XML
-    perl -0pi -e 'BEGIN{local $/; open F,"</tmp/validators.xml"; $r=<F>; close F} s|</beans>\s*$|$r|' conf/global.xml
-  fi
+# Agent credential validators, documented form (SecuringAgentConnections), in conf/global.xml.
+# Needs hub nightly 0.0.3-32 or later: before that these beans were flow-scoped and invisible
+# here, and the LDAP factory lacked startTLSTimeout/autoReconnect/reconnectTimeout (defects #2, #3).
+# Chain: internal (agents.xml secrets) -> LDAP (if AGENT_LDAP_URL) -> htpasswd (if AGENT_HTPASSWD).
+# Written once per container; recreate the hub container after changing these env vars.
+if ! grep -q 'shibboleth.sp.AgentValidators' conf/global.xml; then
+  {
+    echo '    <!-- SP hub: agent credential validators (PoC Phase 4). See hub/entrypoint.sh. -->'
+    echo '    <util:list id="shibboleth.sp.AgentValidators">'
+    echo '        <ref bean="shibboleth.sp.AgentSecretValidator" />'
+    [ -n "${AGENT_LDAP_URL:-}" ] && echo '        <bean parent="shibboleth.sp.LDAPValidator" />'
+    if [ -n "${AGENT_HTPASSWD:-}" ]; then
+      if [ -f "${AGENT_HTPASSWD}" ]; then
+        # $apr1$, {SHA} and crypt ($5$/$6$) hashes; bcrypt ($2y$, htpasswd -B) is not supported.
+        echo "        <bean parent=\"shibboleth.sp.HTPasswdValidator\" p:resource=\"${AGENT_HTPASSWD}\" />"
+      else
+        echo "WARN: ${AGENT_HTPASSWD} missing; htpasswd validator not configured" >&2
+      fi
+    fi
+    echo '    </util:list>'
+    echo
+    echo '</beans>'
+  } > /tmp/validators.xml
+  perl -0pi -e 'BEGIN{local $/; open F,"</tmp/validators.xml"; $r=<F>; close F} s|</beans>\s*$|$r|' conf/global.xml
 fi
 
 # Export the hub's TLS cert (made by the IdP installer for hub.localtest) for agents.

@@ -51,6 +51,7 @@ Browse to `https://localhost/secure/` (accept the self-signed cert) → Google l
 - hub: `global.xml` gets `shibboleth.sp.AgentValidators` = `shibboleth.sp.AgentSecretValidator` + `shibboleth.sp.LDAPValidator`, the documented form (`hub/entrypoint.sh`; needs nightly 0.0.3-32 or later). In `agents.xml`, agent `sp4-agent.localtest` lists `p:usernames` `sa1-sp4-agent` and `sa2-sp4-agent`, and has no secret.
 - agent: `agentID = sa1-sp4-agent` (one of the hub agent's usernames), `agent.pwd` from `./gen-agent-secret.sh sa1-sp4-agent`.
 - Rotate to the other account: `./gen-agent-secret.sh sa2-sp4-agent`, set `agentID = sa2-sp4-agent` in `agent/conf/shibboleth-sp/agent.ini`, then `docker compose up -d --no-deps --force-recreate agent`. The hub is untouched. The LDAP account `sp4-agent` remains as a negative test: it isn't in `p:usernames`, so the hub rejects it with `UnknownUsername`.
+- Phase 4b, flat-file credentials (no directory): `sa3-sp4-agent` exists only in `hub/htpasswd/agents.htpasswd` (gitignored, directory bind mount). Issue or rotate it with `./gen-agent-secret.sh --htpasswd sa3-sp4-agent`, set `agentID = sa3-sp4-agent`, then recreate the agent. The hub re-reads the file on change. The validator chain is internal → LDAP → htpasswd, so an htpasswd-only user costs one failed LDAP bind per (uncached) authentication. Hash formats are covered in `hub/htpasswd/README.md`; bcrypt is not supported.
 
 ## Phase 3b (applied)
 
