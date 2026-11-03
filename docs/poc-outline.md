@@ -111,7 +111,25 @@ Directly answers Scott's ACAMP ask: "how do you issue credentials to all these a
 3. **`p:usernames` cannot work with external validators**: `ValidateAgentCredentials.buildAuthenticationResult` requires `UsernamePrincipal(agent.getId())` in the Subject; only the internal validator produces that. With LDAP the presented username *must equal the agent id* — the identity/credential decoupling described at ACAMP isn't wired through yet. Workaround used: `p:id` = LDAP `uid` = `agent.ini agentID` = `sp4-agent`.
 4. Agent has no separate username setting; `agentID` is the basic-auth username (confirmed in RemotingSettings). Any decoupling must be hub-side.
 
-**Reported:** findings 1–4 (plus the `mail` filter and installer-cert items) sent to dev@shibboleth.net on 2026-11-01 — see `docs/dev-list-writeup.md`. Watch the list for replies from Scott / the SP4 team and record outcomes here.
+**Reported:** findings 1–4 (plus the `mail` filter and installer-cert items) sent to dev@shibboleth.net on 2026-11-01 — see `docs/dev-list-writeup.md`.
+
+**Reply from Scott Cantor (received 2026-11-02).** LDAP validation had not been seriously tested by anyone; most issues are simple to fix and he will add unit tests for the LDAP scenario. Dispositions, numbered as in the write-up:
+
+| # | Item | Disposition |
+|---|------|-------------|
+| 1 | Stock filter drops `mail` | Not a hub defect. Both SAML and OIDC Basics pages say the IdP filter applies; example policy ships at `conf/examples/attribute-filter-sp.xml` (present in our image). Plugin will not overwrite the IdP default. Fuller attribute-handling doc deferred. |
+| 1b | `uid` `ResolutionException` on every login | Resolver shouldn't normally run; he'll ask Phil whether the OIDC plugin forces or accidentally triggers it. Skeletal SP resolver example likely. The "where does the principal come from" hook for the resolver is still an open slot. |
+| 2, 3 | Validator bean scoping; LDAP factory missing properties | Covered by "most issues are simple to correct" + LDAP unit tests. Expect fixes in a later 0.0.3/0.0.4 nightly. |
+| 4 | `p:usernames` unusable with external validators | He'll review the code and add tests for that case. |
+| 5 | No agent username separate from `agentID` | By design: `agentID` *is* the username, period. When it differs from the hub's `p:id`, the hub id is only a logging artifact. |
+| 6 | Installer ignores `idp.host.name` for Jetty keystore | File a separate bug if wanted, but largely historical — likely dropped in V6 in favour of the Jetty plugin. Advice: script the keystore yourself (as we did). |
+| 7 | Always-200 responses | Aimed at agent developers; technical docs may already say so. Tracing exists but isn't documented yet. |
+| — | Agent list format | Would rather define an LDAP schema for agents and a source plugin that loads them directly than generate a flat file. But doubts demand: "directories failed pretty soundly as application repositories"; audience likely tiny. Not much work, not front burner. Open to persuasion. |
+| — | `p:id` vs `agentID` divergence | "That's simply a bug" — the model intends them to diverge (confirms #4). |
+
+**Consequences for this PoC:** keep the custom `attribute-filter.xml` but rebase it on `attribute-filter-sp.xml`; after a nightly that fixes #2–#4, rebuild the hub and retest the documented `AgentValidators` form and `p:usernames` rotation across two LDAP service accounts. Scott's scepticism about directories argues for doing the flat-file/htpasswd option alongside (or before) midPoint→LDAP, and for framing the IGA case around who uses it rather than the mechanism.
+
+**Retest 2026-11-02 against nightly -31** (`sp-dist-0.0.3-20261102.114708-31`, `sp-oidc-dist-…115010-31`, `oidc-common-dist-3.4.0-20261102.111546-321`): hub rebuilt with `--no-cache`; previous image kept as `sp4-hub:20261101`. **No SP fixes yet**: every class in the `sp-*` jars is byte-identical to the previous build, including `ValidateAgentCredentials.class` and `sp-abstract-beans.xml`. The only code changes are in oidc-common (`OAuth2Client-beans.xml`; `BaseJWTSignatureSecurityHandler` gained a `ProfileRequestContextCriteriaSetBuilder`). Agent↔hub health is OK on the new image with the LDAP validator. Retest #2–#4 when the `sp-*` jars change. To check quickly, diff the jar contents rather than logging in.
 
 **Open:** midPoint (image already local) as the IGA source provisioning the lldap accounts; htpasswd validator as the "no directory" option; generating `agents.xml` from the directory.
 
