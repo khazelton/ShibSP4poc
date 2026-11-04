@@ -12,7 +12,7 @@ Deliverable: An OAuth2/OIDC login to that campus app behind a Shib SP v4 OAuth2 
 
 From techex-2026.adoc +
 
-For an overview of the project, the best starting point is PoC outline: OIDC login to a campus app via Shibboleth SP v4 Hub/Agent, https://github.com/khazelton/ShibSP4poc/blob/main/docs/poc-outline.md
+For an overview of the project, the best starting point is "PoC outline: OIDC login to a campus app via Shibboleth SP v4 Hub/Agent", https://github.com/khazelton/ShibSP4poc/blob/main/docs/poc-outline.md
  
 - - -
 10:20 am - 11:10  
