@@ -177,13 +177,15 @@ Directly answers Scott's ACAMP ask: "how do you issue credentials to all these a
 
 **`FlatFileExternalAgentResolver` in -35 (read from bytecode, tested 2026-11-04 in shibSP4clean).** This is Scott's LDIF-style agent loader. Format, one `field: value` per line, `#` comments, a blank line ends a record:
 ```
+# comments only at the start of a line
 id: sp4-agent.localtest
-allowedRange: 172.30.0.20/32      # repeatable
-username: sa1-sp4-agent           # repeatable
-issuer: <client id>               # optional
-authority: https://accounts.google.com   # optional
+allowedRange: 172.30.0.20/32
+username: sa1-sp4-agent
+username: sa3-sp4-agent
+issuer: <client id>
+authority: https://accounts.google.com
 ```
-A record without `id:` is ignored. Duplicate ids or usernames are ignored with a WARN, so the first one wins. Lookups go by credential username first, then by agentID. Properties are `p:resource` (required) and `p:reloadInterval` (default 5 minutes; reloads only when the file's lastModified changes). It is wired in through a new list, `shibboleth.sp.ExternalAgentResolvers`, which `agents-system.xml` passes to `DefaultAgentResolver.externalResolvers`. Internally defined agents are checked first. Shared settings (auth method, address ranges, state manager, attribute services, RP overrides, and so on) are set on the resolver bean, not per record.
+`allowedRange:` and `username:` repeat; `issuer:` and `authority:` are optional. A record without `id:` is ignored. Duplicate ids or usernames are ignored with a WARN, so the first one wins. Lookups go by credential username first, then by agentID. Properties are `p:resource` (required) and `p:reloadInterval` (default 5 minutes; reloads only when the file's lastModified changes). It is wired in through a new list, `shibboleth.sp.ExternalAgentResolvers`, which `agents-system.xml` passes to `DefaultAgentResolver.externalResolvers`. Internally defined agents are checked first. Shared settings (auth method, address ranges, state manager, attribute services, RP overrides, and so on) are set on the resolver bean, not per record.
 **Not usable yet in -35:**
 1. There is no parent bean for it, so every dependency the `shibboleth.sp.Agent` parent supplies has to be set by hand; without them it fails with `StateManager cannot be null`.
 2. Even fully wired, the reload fails: `Cannot convert value of type 'net.shibboleth.sp.impl.FlatFileExternalAgentResolver' to required type 'net.shibboleth.sp.AgentResolver'`. `AbstractExternalAgentResolver` implements `Resolver<Agent,CriteriaSet>` rather than `AgentResolver`, which is what `setExternalResolvers(List<AgentResolver>)` expects.
