@@ -11,6 +11,9 @@ Context: The campus runs Shib SPv4 on top of Shib IdPv4.2+
 Deliverable: An OAuth2/OIDC login to that campus app behind a Shib SP v4 OAuth2 endpoint registered with the Shib SPv4 Hub.
 
 From techex-2026.adoc +
+
+For an overview of the project, the best starting point is PoC outline: OIDC login to a campus app via Shibboleth SP v4 Hub/Agent, https://github.com/khazelton/ShibSP4poc/blob/b80e5e21e4cd8ba7a5da4d59642006fe1306f8e6/docs/poc-outline.md
+ 
 - - -
 10:20 am - 11:10  
     Marq 4 Scaling Shibboleth 4 SP deployents - Scott Cantor - Shib Project https://docs.google.com/document/d/1GciCfd8_zfkF76GQ-5XSpOLZDAmYd3WtON9rOqYJA5w/edit?usp=sharing < ACAMP scribing doc +
