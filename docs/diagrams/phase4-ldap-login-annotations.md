@@ -7,7 +7,7 @@ Companion to the two-page sequence diagram:
 
 For each arrow, this note gives the protocol, what the message carries, and what it means. The arrows are listed in the diagrams' order.
 
-**Provenance.** The diagrams were drawn on 2026-11-01 against hub nightly 0.0.3-20261101. This addendum was written on 2026-11-03 against nightly 0.0.3-32 and checked against the live stack:
+**Provenance.** The diagrams were drawn on 2026-11-01 against hub nightly 0.0.3-20261101 and regenerated on 2026-11-04 for nightly 0.0.3-35. This addendum was written on 2026-11-03 against nightly 0.0.3-32, rechecked against the -35 login of 2026-11-04 (00:12 UTC on 2026-11-05), and first checked against the live stack using:
 - the hub's DEBUG log for a full login at 16:06 UTC;
 - a fresh `curl` of the login redirect;
 - the config in `deploy/`.
@@ -61,7 +61,7 @@ The agent never sees OIDC: it can't tell which protocol the hub speaks to the au
   1. Resolve the agent **from the presented username**. `sa1-sp4-agent` is one of the `p:usernames` of agent `sp4-agent.localtest` in `conf/sp/generated/agents-generated.xml`. A username not on any agent's list is rejected here with `UnknownUsername`, before any password check.
   2. **Check the source address** (`ValidateAgentAddress`). `172.30.0.20` must fall in the agent's `p:allowedAddressRanges` (`172.30.0.20/32`); otherwise the result is `AccessDenied`.
   3. **Check the credential** through the `shibboleth.sp.AgentValidators` chain in `conf/global.xml`, which is internal → LDAP → htpasswd. The first validator to succeed wins.
-     - The internal validator has no local secret for this agent, so it declines. In -32 it logs a spurious INFO `Authentication of agent … failed`, which Scott has acknowledged as a bug.
+     - The internal validator has no local secret for this agent, so it declines. As of -35 it logs DEBUG `No shared secrets configured locally …`. In -32 it logged a spurious INFO `Authentication of agent … failed`, which Scott acknowledged as a bug.
      - The LDAP validator is next (m03).
 
   If the hub had cached the agent's authentication (see the `cached_auth` note under m11), it would skip step 3. The hub log shows `No session record … full authentication will proceed` on every call, so in practice every remoting call is fully authenticated.
@@ -329,3 +329,10 @@ The diagrams were first drawn for the hub 0.0.3-20261101 setup. As of nightly -3
 - the page 1 card and the page 2 card's third bullet: describe username-based agent resolution and the internal → LDAP → htpasswd chain.
 
 The per-arrow notes above still mention the old labels, so they read correctly against either version.
+
+**Regenerated 2026-11-04 for nightly -35:**
+- The hub-side arrows (m02–m17) were checked against the hub log of a full Google login: one LDAP bind per remoting call (m03, m11), sealed state preserved and recovered, code exchange, RS256 verification, UserInfo, and the same seven mapped attributes (m16). The login itself succeeded in the browser; the agent-to-app arrows (m18–m21) weren't logged separately.
+- The flow didn't change, so only the two titles did (now "hub 0.0.3-35").
+- The internal validator's false INFO line is gone (see m02).
+- The LDAP factory now reads `startTLSTimeout`, `autoReconnect` and `reconnectTimeout` from `sp.agent.authn.LDAP.*`. This doesn't affect any arrow.
+- The session cookie name in m18 still wasn't checked, because curl can't complete a Google login.
