@@ -30,3 +30,6 @@ deploy/hub/htpasswd/*.htpasswd
 # archify visual-check evidence (regenerable)
 docs/diagrams/*.visual-check.*
 docs/diagrams/*.delivery.json
+docs/diagrams/*.browser-check.json
+docs/diagrams/*.finalize.json
+docs/diagrams/*.finalize-summary.json
