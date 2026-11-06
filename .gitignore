@@ -33,3 +33,6 @@ docs/diagrams/*.delivery.json
 docs/diagrams/*.browser-check.json
 docs/diagrams/*.finalize.json
 docs/diagrams/*.finalize-summary.json
+
+# Claude Code worktrees
+.claude/worktrees/
