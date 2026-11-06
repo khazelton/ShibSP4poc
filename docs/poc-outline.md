@@ -194,6 +194,8 @@ authority: https://accounts.google.com
 
 Probably just unfinished (Scott said only file loading was left). Worth mentioning to him, and retest when a parent bean such as `shibboleth.sp.FlatFileAgentResolver` appears. The format maps 1:1 to `hub/agents/agents.csv` minus `group` and `owner`; `gen-agents-xml.py` can emit it once the resolver works.
 
+**Nightly -37 (2026-11-06, read from the jars, not deployed).** Both -35 blockers look fixed: there is now a `shibboleth.sp.FlatFileAgentResolver` parent bean, and the resolver implements `AgentResolver`. The record format is unchanged, but `reloadInterval` now defaults to zero. The stock sample's `p:reloadChanges` has no setter, so use `p:reloadInterval`. Details are in `docs/sp4-research.md`. Not yet tested; `sp4-hub:dev` is still -35.
+
 **Open:** midPoint (image already local) as the IGA source provisioning the lldap accounts and the flat agent list; the switch to Scott's loader format when it ships; checking the IdP docs for a bcrypt claim. (The htpasswd validator and the generated agent list are done; see above.)
 
 - Baseline: document what a hub operator does per agent today (bean in `agents.xml`, secret, IP range, issuer, OP client registration).

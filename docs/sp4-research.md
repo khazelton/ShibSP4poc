@@ -168,6 +168,28 @@ Agent credentials (the scaling problem Scott wanted feedback on)
 - Keith's framing: agents are long-term principals — apply human identity-management processes. Scott: technically easy, organisationally hard. "Service account management still seems to be hard in organisations."
 - Scott explicitly asked for deployment feedback and how orgs would issue credentials at scale.
 
+## Flat-file agent resolver in nightly -37 (read from the jars, not run)
+
+Source: `sp-dist-0.0.3-20261106.015713-37`, signature checked against the snapshot keyring, compared with -35 from `sp4-hub:dev`. Nothing here has been deployed. The record format is in `docs/poc-outline.md` (Phase 4, "`FlatFileExternalAgentResolver` in -35") and has not changed.
+
+Both -35 blockers are gone:
+- `agents-system.xml` adds abstract beans `shibboleth.sp.AbstractExternalAgentResolver` and `shibboleth.sp.FlatFileAgentResolver`. The first supplies what the `shibboleth.sp.Agent` parent supplies: state manager, attribute services, security config, profile configurations, RP overrides, credential resolver, and so on. Every property it sets has a setter on the class.
+- `AbstractExternalAgentResolver` now implements `net.shibboleth.sp.AgentResolver`, so it fits `DefaultAgentResolver.setExternalResolvers`.
+
+Other changes:
+- `reloadInterval` now defaults to zero instead of 5 minutes, and `doInitialize` checks for zero, so a file is apparently read once unless an interval is set.
+- A block with no fields, such as a comment-only block or extra blank lines, no longer logs "Ignoring agent definition with no 'id:' field". A block that has fields but no `id:` still does.
+
+Wiring sample, commented out in the new stock `agents.xml`:
+```xml
+<util:list id="shibboleth.sp.ExternalAgentResolvers">
+    <bean p:id="my.BatchLoader" parent="shibboleth.sp.FlatFileAgentResolver"
+        p:resource="%{idp.home}/conf/sp/agents.txt"
+        p:reloadChanges="PT5M" />
+</util:list>
+```
+**The sample looks wrong:** neither resolver class has a `setReloadChanges`, only `setReloadInterval`. Use `p:reloadInterval="PT5M"`. Worth telling Scott.
+
 ## Page index
 
 Design (DEV space):
