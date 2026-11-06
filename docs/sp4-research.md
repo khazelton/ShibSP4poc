@@ -197,6 +197,8 @@ Tested with the agent defined only in the flat file (no bean), `sa3-sp4-agent` v
 - A comment-only block logged no error.
 - With no `reloadInterval`, the same removal was ignored until `AgentResolverService` was reloaded, which confirms the zero default.
 
+- A browser login through Google completed: the hub audited `SP.TokenConsumer.OIDC` for `sp4-agent.localtest` and `/secure/` gave the expected proxy error (no app in that stack). So token consumption works with a flat-file agent and with `sa3-sp4-agent`.
+
 Not tested: a per-record `authority:` override.
 
 ## Page index
