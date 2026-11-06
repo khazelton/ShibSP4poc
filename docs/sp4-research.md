@@ -168,16 +168,16 @@ Agent credentials (the scaling problem Scott wanted feedback on)
 - Keith's framing: agents are long-term principals — apply human identity-management processes. Scott: technically easy, organisationally hard. "Service account management still seems to be hard in organisations."
 - Scott explicitly asked for deployment feedback and how orgs would issue credentials at scale.
 
-## Flat-file agent resolver in nightly -37 (read from the jars, not run)
+## Flat-file agent resolver in nightly -37
 
-Source: `sp-dist-0.0.3-20261106.015713-37`, signature checked against the snapshot keyring, compared with -35 from `sp4-hub:dev`. Nothing here has been deployed. The record format is in `docs/poc-outline.md` (Phase 4, "`FlatFileExternalAgentResolver` in -35") and has not changed.
+Source: `sp-dist-0.0.3-20261106.015713-37`, signature checked against the snapshot keyring, compared with -35 from `sp4-hub:dev`. Tested 2026-11-06 in `~/devspace/shibSP4clean`; see the results at the end of this section. The record format is in `docs/poc-outline.md` (Phase 4, "`FlatFileExternalAgentResolver` in -35") and has not changed.
 
 Both -35 blockers are gone:
 - `agents-system.xml` adds abstract beans `shibboleth.sp.AbstractExternalAgentResolver` and `shibboleth.sp.FlatFileAgentResolver`. The first supplies what the `shibboleth.sp.Agent` parent supplies: state manager, attribute services, security config, profile configurations, RP overrides, credential resolver, and so on. Every property it sets has a setter on the class.
 - `AbstractExternalAgentResolver` now implements `net.shibboleth.sp.AgentResolver`, so it fits `DefaultAgentResolver.setExternalResolvers`.
 
 Other changes:
-- `reloadInterval` now defaults to zero instead of 5 minutes, and `doInitialize` checks for zero, so a file is apparently read once unless an interval is set.
+- `reloadInterval` now defaults to zero instead of 5 minutes, so the file is read only when the service loads unless an interval is set.
 - A block with no fields, such as a comment-only block or extra blank lines, no longer logs "Ignoring agent definition with no 'id:' field". A block that has fields but no `id:` still does.
 
 Wiring sample, commented out in the new stock `agents.xml`:
@@ -188,7 +188,16 @@ Wiring sample, commented out in the new stock `agents.xml`:
         p:reloadChanges="PT5M" />
 </util:list>
 ```
-**The sample looks wrong:** neither resolver class has a `setReloadChanges`, only `setReloadInterval`. Use `p:reloadInterval="PT5M"`. Worth telling Scott.
+**The sample is wrong:** neither resolver class has a `setReloadChanges`, only `setReloadInterval`. Uncommented as written, a reload of `shibboleth.sp.AgentResolverService` fails with `NotWritablePropertyException: Invalid property 'reloadChanges'`, and the previous configuration stays live. Use `p:reloadInterval="PT5M"`. Worth telling Scott.
+
+Tested with the agent defined only in the flat file (no bean), `sa3-sp4-agent` via htpasswd, `p:reloadInterval="PT10S"`, checked with curl:
+- Remoting reports `<OK/>` and `/secure/` returns the 302 to Google.
+- Removing `username: sa3-sp4-agent` took effect within 14 seconds without a reload: `Unknown agent based on credential ID`, event `UnknownUsername`, and the agent returns 500. Restoring the line recovered it the same way.
+- A per-record `issuer:` overrides `sp.issuer`: it appeared as `client_id` in the Google redirect.
+- A comment-only block logged no error.
+- With no `reloadInterval`, the same removal was ignored until `AgentResolverService` was reloaded, which confirms the zero default.
+
+Not tested: a per-record `authority:` override.
 
 ## Page index
 
