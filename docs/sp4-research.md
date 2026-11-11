@@ -201,6 +201,21 @@ Tested with the agent defined only in the flat file (no bean), `sa3-sp4-agent` v
 
 Not tested: a per-record `authority:` override.
 
+## Package moves in nightly -43
+
+Source: `sp-dist-0.0.3-20261111.015430-43` and `sp-oidc-dist-…015726-43` (`oidc-common-dist-3.4.0-…-322` unchanged), compared with -37 from `sp4clean-hub:37`. Only three jars changed: `sp-conf-impl`, `sp-server-api` and `sp-server-impl`. The code changes are package moves:
+
+| Class | -37 | -43 |
+|-------|-----|-----|
+| `DefaultAgentResolver`, `FlatFileExternalAgentResolver` | `net.shibboleth.sp.impl` | `net.shibboleth.sp.agent.resolver.impl` |
+| `BasicAgent`, `BasicApplication`, `ProtocolSupportServiceManager` | `net.shibboleth.sp.impl` | `net.shibboleth.sp` |
+
+`postconfig.xml` and `agents-system.xml` follow the moves, and bean ids and parent names are unchanged (`shibboleth.sp.Agent`, `shibboleth.sp.FlatFileAgentResolver`, and so on). Config that uses only parent beans, as the PoC and shibSP4clean do, needs no change. Config that names a class directly would break.
+
+The stock `agents.xml` sample now says `p:reloadInterval="PT5M"`, so the `p:reloadChanges` bug noted for -37 is fixed without our having reported it.
+
+Tested 2026-11-11 in shibSP4clean (`sa3-sp4-agent` via htpasswd, agent only in the flat file, `p:reloadInterval="PT1M"`), checked with curl. Remoting reports `<OK/>`, and `/secure/` returns the 302 to Google. Removing `username: sa3-sp4-agent` took effect on the next reload (`FlatFileExternalAgentResolver` now logs under `net.shibboleth.sp.agent.resolver.impl`), giving `Unknown agent based on credential ID` and `UnknownUsername`. Restoring the line recovered it the same way.
+
 ## Page index
 
 Design (DEV space):
