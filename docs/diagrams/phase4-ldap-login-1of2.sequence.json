@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "SP4 PoC — Phase 4 login, page 1 of 2: login start and Google authentication (hub 0.0.3-35)",
+    "title": "SP4 PoC — Phase 4 login, page 1 of 2: login start and Google authentication (hub 0.0.3-37)",
     "output": "docs/diagrams/phase4-ldap-login-1of2.html",
     "viewBox": [1340, 560],
     "quality_profile": "showcase",

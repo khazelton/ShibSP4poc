@@ -7,7 +7,7 @@ Companion to the two-page sequence diagram:
 
 For each arrow, this note gives the protocol, what the message carries, and what it means. The arrows are listed in the diagrams' order.
 
-**Provenance.** The diagrams were drawn on 2026-11-01 against hub nightly 0.0.3-20261101 and regenerated on 2026-11-04 for nightly 0.0.3-35. This addendum was written on 2026-11-03 against nightly 0.0.3-32, rechecked against the -35 login of 2026-11-04 (00:12 UTC on 2026-11-05), and first checked against the live stack using:
+**Provenance.** The diagrams were drawn on 2026-11-01 against hub nightly 0.0.3-20261101 regenerated on 2026-11-04 for nightly 0.0.3-35, and retitled on 2026-11-11 for nightly 0.0.3-37. This addendum was written on 2026-11-03 against nightly 0.0.3-32, rechecked against the -35 login of 2026-11-04 (00:12 UTC on 2026-11-05) and the -37 login of 2026-11-06 (19:49 UTC), and first checked against the live stack using:
 - the hub's DEBUG log for a full login at 16:06 UTC;
 - a fresh `curl` of the login redirect;
 - the config in `deploy/`.
@@ -59,6 +59,7 @@ The agent never sees OIDC: it can't tell which protocol the hub speaks to the au
   - The browser's request, **tunnelled**: the hub logs `Wrapping tunnelled HTTP request`. It has the URL, headers and cookies the hub needs to act as if it had seen the browser itself.
 - **Semantics:** the hub first identifies and authenticates the agent. As of nightly -32, the steps run in this order:
   1. Resolve the agent **from the presented username**. `sa1-sp4-agent` is one of the `p:usernames` of agent `sp4-agent.localtest` in `conf/sp/generated/agents-generated.xml`. A username not on any agent's list is rejected here with `UnknownUsername`, before any password check.
+     - Since -35 the resolver also consults the beans in `shibboleth.sp.ExternalAgentResolvers` (such as a `shibboleth.sp.FlatFileAgentResolver`, usable from -37), after the internally defined agents. The PoC defines none, so its agent still comes from the generated bean.
   2. **Check the source address** (`ValidateAgentAddress`). `172.30.0.20` must fall in the agent's `p:allowedAddressRanges` (`172.30.0.20/32`); otherwise the result is `AccessDenied`.
   3. **Check the credential** through the `shibboleth.sp.AgentValidators` chain in `conf/global.xml`, which is internal → LDAP → htpasswd. The first validator to succeed wins.
      - The internal validator has no local secret for this agent, so it declines. As of -35 it logs DEBUG `No shared secrets configured locally …`. In -32 it logged a spurious INFO `Authentication of agent … failed`, which Scott acknowledged as a bug.
@@ -302,7 +303,7 @@ All of these return HTTP 200 on the remoting channel, with the outcome in the DD
 | m02/m10 | Source address outside `allowedAddressRanges` | `AccessDenied` |
 | m03/m11 | Wrong password in LDAP and in htpasswd | `InvalidCredentials` |
 | m02/m10 | Empty or garbled body | `InvalidMessage` |
-| m10 | State cookie missing or expired (over 30 min), or `state` doesn't match a cookie | Flow ends at state recovery |
+| m10 | State cookie missing or expired (over 30 min), or `state` doesn't match a cookie | Flow ends at state recovery. Seen on -37 (2026-11-06 19:48 UTC): WARN `No cookie found matching state token`, then `RecoverStateData: Unable to recover data from state token`, event `MessageProcessingError`; agent credentials had already passed |
 | m14 | Bad signature, wrong `aud`/`iss`, expired token, nonce mismatch | Flow ends at ID-token validation |
 
 ## What changed since the diagrams were drawn
@@ -336,3 +337,10 @@ The per-arrow notes above still mention the old labels, so they read correctly a
 - The internal validator's false INFO line is gone (see m02).
 - The LDAP factory now reads `startTLSTimeout`, `autoReconnect` and `reconnectTimeout` from `sp.agent.authn.LDAP.*`. This doesn't affect any arrow.
 - The session cookie name in m18 still wasn't checked, because curl can't complete a Google login.
+
+**Retitled 2026-11-11 for nightly -37:**
+- The PoC moved to -37 on 2026-11-06 with no config changes. The hub-side arrows (m02–m17) were checked against the hub log of the Google login that day (19:49 UTC): one LDAP bind per remoting call (m03, m11), the internal validator's DEBUG `No shared secrets configured locally …` (m02), sealed state preserved and recovered, RS256 verification, and the same seven mapped attributes (m16). Keith confirmed `/secure/` and `/secure/callapi` in the browser.
+- The flow didn't change, so only the two titles did (now "hub 0.0.3-37"). The cards still hold: the PoC keeps its CSV-generated agent bean.
+- What -37 changed is the external agent source (`shibboleth.sp.FlatFileAgentResolver`), which the PoC doesn't use yet (see m02 step 1). When the PoC switches to it, the page 1 card's "generated from agents.csv" bullet changes.
+- The log also has a failed attempt two minutes earlier, where the state cookie didn't match the token; it is now an example in the negative-paths table.
+- The session cookie name in m18 still wasn't checked.
