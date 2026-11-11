@@ -1,0 +1,11 @@
+# Override: don't publish the hub's 127.0.0.1:8080 on the host.
+# Use when another local stack already holds host port 8080. Nothing on the login path
+# needs it: the agent reaches the hub on 8443 over the docker network, and the hub
+# healthcheck runs inside the container.
+#
+#   docker compose -f compose.yaml -f compose.noport.yaml up -d
+#
+# `!reset` needs Docker Compose 2.24 or later.
+services:
+  hub:
+    ports: !reset []

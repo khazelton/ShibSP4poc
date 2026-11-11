@@ -7,7 +7,7 @@ Companion to the two-page sequence diagram:
 
 For each arrow, this note gives the protocol, what the message carries, and what it means. The arrows are listed in the diagrams' order.
 
-**Provenance.** The diagrams were drawn on 2026-11-01 against hub nightly 0.0.3-20261101 regenerated on 2026-11-04 for nightly 0.0.3-35, and retitled on 2026-11-11 for nightly 0.0.3-37. This addendum was written on 2026-11-03 against nightly 0.0.3-32, rechecked against the -35 login of 2026-11-04 (00:12 UTC on 2026-11-05) and the -37 login of 2026-11-06 (19:49 UTC), and first checked against the live stack using:
+**Provenance.** The diagrams were drawn on 2026-11-01 against hub nightly 0.0.3-20261101 regenerated on 2026-11-04 for nightly 0.0.3-35, and retitled on 2026-11-11 for nightly 0.0.3-37 and then 0.0.3-43. This addendum was written on 2026-11-03 against nightly 0.0.3-32, rechecked against the -35 login of 2026-11-04 (00:12 UTC on 2026-11-05) the -37 login of 2026-11-06 (19:49 UTC) and the -43 login of 2026-11-11 (21:22 UTC), and first checked against the live stack using:
 - the hub's DEBUG log for a full login at 16:06 UTC;
 - a fresh `curl` of the login redirect;
 - the config in `deploy/`.
@@ -344,3 +344,7 @@ The per-arrow notes above still mention the old labels, so they read correctly a
 - What -37 changed is the external agent source (`shibboleth.sp.FlatFileAgentResolver`), which the PoC doesn't use yet (see m02 step 1). When the PoC switches to it, the page 1 card's "generated from agents.csv" bullet changes.
 - The log also has a failed attempt two minutes earlier, where the state cookie didn't match the token; it is now an example in the negative-paths table.
 - The session cookie name in m18 still wasn't checked.
+
+**Retitled 2026-11-11 for nightly -43:**
+- The PoC moved to -43 the same day with no config changes. The hub log of the Google login at 21:22 UTC shows the same hub-side sequence as on -37: the internal validator declines, `spagent-ldap` binds `sa1-sp4-agent` (m03, m11), the sealed state is recovered (m10), the same seven attributes are mapped (m16) and `SP.TokenConsumer.OIDC` is audited (m17). Keith confirmed `/secure/` and `/secure/callapi` in the browser.
+- -43 only moves classes to new packages (`net.shibboleth.sp.agent.resolver.impl`, `net.shibboleth.sp`); bean names are unchanged, so no arrow or card changes. Only the titles did (now "hub 0.0.3-43").

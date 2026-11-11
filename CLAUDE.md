@@ -22,6 +22,7 @@ Everything lives in `deploy/` (Docker Compose, fixed subnet 172.30.0.0/24).
 ```sh
 cd deploy
 docker compose up -d                     # normal start; images already built
+docker compose -f compose.yaml -f compose.noport.yaml up -d   # same, when another stack holds host port 8080
 docker compose down                      # stop; named volumes survive
 docker compose build hub && docker compose up -d hub            # after hub/ changes
 ./gen-agents-xml.py --reload             # after editing hub/agents/agents.csv (agent list); validates, regenerates, hot-reloads
@@ -57,10 +58,11 @@ Hub config applied at container start by `deploy/hub/entrypoint.sh` (sp.properti
 
 ## Hub 0.0.3 quirks that shape the config (details in `docs/dev-list-writeup.md`)
 
-- Fixed in nightly 0.0.3-32 (2026-11-03), workarounds removed: validator beans are now visible from root context (documented `global.xml` form used), the LDAP factory has full properties, and `p:usernames` works with external validators. `sp4-hub:dev` is -37 as of 2026-11-06; `sp4-hub:20261104` is -35 and `sp4-hub:20261103` is -32. Rolling back to `sp4-hub:20261102` (-31) would need the old workarounds from git history (before the -32 commit).
+- Fixed in nightly 0.0.3-32 (2026-11-03), workarounds removed: validator beans are now visible from root context (documented `global.xml` form used), the LDAP factory has full properties, and `p:usernames` works with external validators. `sp4-hub:dev` is -43 as of 2026-11-11; `sp4-hub:20261106` is -37, `sp4-hub:20261104` is -35 and `sp4-hub:20261103` is -32. Rolling back to `sp4-hub:20261102` (-31) would need the old workarounds from git history (before the -32 commit).
 - `agentID` *is* the basic-auth username (by design, per Scott). The hub's `p:id` is the agent's identity for logs and audit only.
 - SP LDAP properties no longer chain to `idp.authn.LDAP.*` (as of -32); set every `sp.agent.authn.LDAP.*` explicitly. As of -35 the factory's `startTLSTimeout`/`autoReconnect`/`reconnectTimeout` read `sp.agent.authn.LDAP.*` too (the `sp.authn.LDAP.*` prefix in -32 was a bug). `sslConfig=jvmTrust` is PoC-only (plain `ldap://`); Scott says it isn't meant for real use.
 - Stock IdP `attribute-filter.xml` drops `mail`; `deploy/hub/conf/attribute-filter.xml` replaces it.
+- As of -43 the agent resolver classes live in `net.shibboleth.sp.agent.resolver.impl` and `BasicAgent`/`BasicApplication` in `net.shibboleth.sp`. Refer to parent beans (`shibboleth.sp.Agent`, `shibboleth.sp.FlatFileAgentResolver`), never class names.
 - Snapshot plugins are resolved at build time (newest tarball with a `.asc`); a rebuild can pick up a newer nightly and change the above. Run `./check-hub-nightly.sh` first.
 
 ## Conventions
