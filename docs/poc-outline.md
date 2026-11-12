@@ -13,7 +13,7 @@ SP v4 hub is an OIDC **RP**, not an OP. It consumes tokens and hands attributes 
 ```
 browser ──▶ Apache + mod_shib4 (Agent) ──HTTP/TLS, basic auth──▶ Hub (IdP 5.2 + shibd plugins)
                  │                                                   │
-                 │ mod_proxy, attrs as HTTP headers                   │ OIDC auth code flow
+                 │ mod_proxy, attrs as HTTP headers                  │ OIDC auth code flow
                  ▼                                                   ▼
           Jetty: campus app                     OP: Google (PoC) / campus IdP OIDC OP (prod)
 ```
